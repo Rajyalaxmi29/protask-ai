@@ -24,7 +24,11 @@ export default function Login() {
     setLoading(false);
 
     if (error) {
-      alert(error.message);
+      if (error.message === 'Invalid login credentials') {
+        alert("Register first or check your credentials!");
+      } else {
+        alert(error.message);
+      }
       return;
     }
 
