@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, User, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useCustomLabels } from '../lib/useCustomLabels';
 
 interface NavLinkProps {
   key?: string | number;
@@ -12,14 +13,13 @@ interface NavLinkProps {
 }
 
 const NavLink = ({ label, to, active = false, onClick }: NavLinkProps) => (
-  <Link 
-    to={to} 
+  <Link
+    to={to}
     onClick={onClick}
-    className={`px-4 py-2 rounded-full cursor-pointer transition-all text-sm font-semibold tracking-wide block md:inline-block ${
-    active 
-      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-      : 'text-gray-400 hover:text-white hover:bg-white/5'
-  }`}>
+    className={`px-4 py-2 rounded-full cursor-pointer transition-all text-sm font-semibold tracking-wide block md:inline-block ${active
+        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+        : 'text-gray-400 hover:text-white hover:bg-white/5'
+      }`}>
     {label}
   </Link>
 );
@@ -27,7 +27,8 @@ const NavLink = ({ label, to, active = false, onClick }: NavLinkProps) => (
 export default function Navbar() {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  
+  const { labels } = useCustomLabels();
+
   const navItems = [
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Tasks', to: '/tasks' },
@@ -48,14 +49,25 @@ export default function Navbar() {
       {/* Desktop Nav */}
       <nav className="hidden md:flex items-center gap-2">
         {navItems.map(item => (
-          <NavLink 
+          <NavLink
             key={item.to}
-            label={item.label} 
-            to={item.to} 
-            active={location.pathname === item.to} 
+            label={item.label}
+            to={item.to}
+            active={location.pathname === item.to}
           />
         ))}
-        
+        {labels.length > 0 && (
+          <div className="w-px h-5 bg-white/10 mx-2" />
+        )}
+        {labels.map(label => (
+          <NavLink
+            key={`desktop-nav-${label.id}`}
+            label={label.name}
+            to={`/labels/${label.id}`}
+            active={location.pathname === `/labels/${label.id}`}
+          />
+        ))}
+
         <div className="ml-6 flex items-center gap-3 pl-6 border-l border-white/10">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all">
             <User size={18} className="text-white" />
@@ -64,7 +76,7 @@ export default function Navbar() {
       </nav>
 
       {/* Mobile Menu Toggle */}
-      <button 
+      <button
         className="md:hidden p-2 text-gray-400 hover:text-white relative z-[60]"
         onClick={() => setIsMenuOpen(!isMenuOpen)}
       >
@@ -81,11 +93,23 @@ export default function Navbar() {
             className="fixed inset-0 bg-[#0a0a0a] z-50 flex flex-col pt-24 px-6 gap-4"
           >
             {navItems.map(item => (
-              <NavLink 
+              <NavLink
                 key={item.to}
-                label={item.label} 
-                to={item.to} 
+                label={item.label}
+                to={item.to}
                 active={location.pathname === item.to}
+                onClick={() => setIsMenuOpen(false)}
+              />
+            ))}
+            {labels.length > 0 && (
+              <div className="h-px w-full bg-white/5 my-2" />
+            )}
+            {labels.map(label => (
+              <NavLink
+                key={`mobile-nav-${label.id}`}
+                label={label.name}
+                to={`/labels/${label.id}`}
+                active={location.pathname === `/labels/${label.id}`}
                 onClick={() => setIsMenuOpen(false)}
               />
             ))}

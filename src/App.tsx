@@ -8,6 +8,7 @@ import Tasks from './pages/Tasks';
 import Budget from './pages/Budget';
 import Reminders from './pages/Reminders';
 import Files from './pages/Files';
+import LabelDetail from './pages/LabelDetail';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/budget" element={<Budget />} />
         <Route path="/reminders" element={<Reminders />} />
         <Route path="/files" element={<Files />} />
+        <Route path="/labels/:id" element={<LabelDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
