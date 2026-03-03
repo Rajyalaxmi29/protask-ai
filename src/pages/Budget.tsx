@@ -1,28 +1,176 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Plus, ArrowUpRight, ArrowDownRight, Coffee, Car, ShoppingBag, MoreHorizontal } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
+import { supabase } from '../lib/supabase';
 
-const data = [
-  { name: 'Food', value: 35, color: '#3b82f6' },
-  { name: 'Transport', value: 20, color: '#10b981' },
-  { name: 'Shopping', value: 25, color: '#f59e0b' },
-  { name: 'Other', value: 20, color: '#ef4444' },
-];
+const categoryIcons: { [key: string]: React.ReactNode } = {
+  'Food': Coffee,
+  'Transport': Car,
+  'Shopping': ShoppingBag,
+  'Income': ArrowUpRight,
+  'Other': MoreHorizontal,
+};
 
-const transactions = [
-  { id: '1', name: 'Grocery Store', category: 'Food', date: 'Today', amount: -1200, icon: Coffee },
-  { id: '2', name: 'Salary Credit', category: 'Income', date: 'Yesterday', amount: 15000, icon: ArrowUpRight },
-  { id: '3', name: 'Uber Ride', category: 'Transport', date: 'Yesterday', amount: -450, icon: Car },
-  { id: '4', name: 'Amazon Order', category: 'Shopping', date: 'Feb 26', amount: -2500, icon: ShoppingBag },
-  { id: '5', name: 'Starbucks', category: 'Food', date: 'Feb 25', amount: -350, icon: Coffee },
-];
+const categoryColors: { [key: string]: string } = {
+  'Food': '#3b82f6',
+  'Transport': '#10b981',
+  'Shopping': '#f59e0b',
+  'Other': '#ef4444',
+  'Income': '#10b981',
+};
+
+interface BudgetEntry {
+  id: string;
+  type: string;
+  amount: number;
+  category: string;
+  note: string;
+  entry_date: string;
+}
 
 export default function Budget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [type, setType] = useState<'Income' | 'Expense'>('Expense');
+  const [entries, setEntries] = useState<BudgetEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    amount: '',
+    category: 'Food',
+    note: '',
+    entry_date: new Date().toISOString().split('T')[0],
+  });
+
+  const fetchEntries = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.error('No authenticated user found');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('budget_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('entry_date', { ascending: false });
+
+      if (error) {
+        console.error(JSON.stringify(error, null, 2));
+        return;
+      }
+
+      setEntries(data || []);
+    } catch (error) {
+      console.error(JSON.stringify(error, null, 2));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEntries();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.error('No authenticated user found');
+        return;
+      }
+
+      const amount = parseFloat(formData.amount);
+      if (!amount || amount <= 0) {
+        console.error('Invalid amount');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('budget_entries')
+        .insert({
+          user_id: user.id,
+          type: type.toLowerCase(),
+          amount: amount,
+          category: formData.category,
+          note: formData.note,
+          entry_date: formData.entry_date,
+        });
+
+      if (error) {
+        console.error(JSON.stringify(error, null, 2));
+        return;
+      }
+
+      setFormData({
+        amount: '',
+        category: 'Food',
+        note: '',
+        entry_date: new Date().toISOString().split('T')[0],
+      });
+      setType('Expense');
+      setIsModalOpen(false);
+      
+      await fetchEntries();
+    } catch (error) {
+      console.error(JSON.stringify(error, null, 2));
+    }
+  };
+
+  // Calculate summary values
+  const totalIncome = entries
+    .filter(e => e.type === 'income')
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const totalExpenses = entries
+    .filter(e => e.type === 'expense')
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const remaining = totalIncome - totalExpenses;
+
+  // Calculate pie chart data
+  const expensesByCategory = entries
+    .filter(e => e.type === 'expense')
+    .reduce((acc: { [key: string]: number }, e) => {
+      acc[e.category] = (acc[e.category] || 0) + e.amount;
+      return acc;
+    }, {});
+
+  const chartData = Object.entries(expensesByCategory).map(([category, value]) => ({
+    name: category,
+    value: value,
+    color: categoryColors[category] || '#ef4444',
+  }));
+
+  // Format recent transactions for display
+  const getRelativeDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    
+    return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+  };
+
+  const transactions = entries
+    .sort((a, b) => new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime())
+    .slice(0, 5)
+    .map(entry => ({
+      ...entry,
+      displayDate: getRelativeDate(entry.entry_date),
+      displayAmount: entry.type === 'income' ? entry.amount : -entry.amount,
+      icon: categoryIcons[entry.category] || MoreHorizontal,
+    }));
 
   return (
     <div className="min-h-screen bg-[#020817] text-white font-sans flex flex-col">
@@ -43,9 +191,9 @@ export default function Budget() {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-12">
           {[
-            { label: 'Total Income', value: '₹15,000', color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-            { label: 'Total Expenses', value: '₹4,200', color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/20' },
-            { label: 'Remaining', value: '₹10,800', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+            { label: 'Total Income', value: totalIncome.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }), color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+            { label: 'Total Expenses', value: totalExpenses.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }), color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/20' },
+            { label: 'Remaining', value: remaining.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }), color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
           ].map((card, i) => (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -65,25 +213,28 @@ export default function Budget() {
           <div>
             <h3 className="text-lg md:text-xl font-bold mb-6 flex items-center gap-2">
               Recent Transactions
-              <span className="text-[10px] font-medium text-gray-500 bg-white/5 px-2 py-1 rounded-full uppercase tracking-widest">5 Entries</span>
+              <span className="text-[10px] font-medium text-gray-500 bg-white/5 px-2 py-1 rounded-full uppercase tracking-widest">{transactions.length} Entries</span>
             </h3>
             <div className="space-y-4">
-              {transactions.map((t) => (
-                <div key={t.id} className="flex items-center justify-between p-4 md:p-5 bg-[#141414] border border-white/5 rounded-2xl hover:border-white/10 transition-all group">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center ${t.amount > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                      <t.icon size={18} />
+              {transactions.map((t) => {
+                const Icon = t.icon as React.ElementType;
+                return (
+                  <div key={t.id} className="flex items-center justify-between p-4 md:p-5 bg-[#141414] border border-white/5 rounded-2xl hover:border-white/10 transition-all group">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center ${t.displayAmount > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                        <Icon size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm md:text-base text-white truncate">{t.note || t.category}</h4>
+                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider truncate">{t.category} • {t.displayDate}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-sm md:text-base text-white truncate">{t.name}</h4>
-                      <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider truncate">{t.category} • {t.date}</p>
+                    <div className={`text-base md:text-lg font-black ${t.displayAmount > 0 ? 'text-emerald-500' : 'text-red-500'} shrink-0 ml-2`}>
+                      {t.displayAmount > 0 ? '+' : ''}{t.displayAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                     </div>
                   </div>
-                  <div className={`text-base md:text-lg font-black ${t.amount > 0 ? 'text-emerald-500' : 'text-red-500'} shrink-0 ml-2`}>
-                    {t.amount > 0 ? '+' : ''}{t.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -94,7 +245,7 @@ export default function Budget() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={data}
+                    data={chartData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -102,7 +253,7 @@ export default function Budget() {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {data.map((entry, index) => (
+                    {chartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                     ))}
                   </Pie>
@@ -124,7 +275,7 @@ export default function Budget() {
         onClose={() => setIsModalOpen(false)} 
         title="Add Budget Entry"
       >
-        <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); setIsModalOpen(false); }}>
+        <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="flex p-1 bg-white/5 rounded-xl">
             <button 
               type="button"
@@ -146,12 +297,19 @@ export default function Budget() {
             <input 
               type="number" 
               placeholder="0.00"
+              value={formData.amount}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              required
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all text-2xl font-black"
             />
           </div>
           <div>
             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Category</label>
-            <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none">
+            <select 
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
+            >
               <option value="Food">Food</option>
               <option value="Transport">Transport</option>
               <option value="Shopping">Shopping</option>
@@ -164,6 +322,8 @@ export default function Budget() {
             <input 
               type="text" 
               placeholder="What was this for?"
+              value={formData.note}
+              onChange={(e) => setFormData({ ...formData, note: e.target.value })}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
             />
           </div>
@@ -171,6 +331,9 @@ export default function Budget() {
             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Date</label>
             <input 
               type="date" 
+              value={formData.entry_date}
+              onChange={(e) => setFormData({ ...formData, entry_date: e.target.value })}
+              required
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
             />
           </div>

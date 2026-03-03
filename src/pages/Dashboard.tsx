@@ -107,10 +107,12 @@ export default function Dashboard() {
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [todaysTaskCount, setTodaysTaskCount] = useState<string>("0");
+  const [budgetThisMonth, setBudgetThisMonth] = useState<string>("₹0");
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchTodaysTaskCount();
+    fetchBudgetThisMonth();
   }, []);
 
   const fetchTodaysTaskCount = async () => {
@@ -142,6 +144,46 @@ export default function Dashboard() {
       setTodaysTaskCount(count ? count.toString() : "0");
     } catch (error) {
       console.error("Error fetching today's task count:", error);
+    }
+  };
+
+  const fetchBudgetThisMonth = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No authenticated user found');
+        return;
+      }
+
+      // Get current month's first and last day
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      const firstDayStr = firstDay.toISOString().split('T')[0];
+      const lastDayStr = lastDay.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('budget_entries')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('type', 'expense')
+        .gte('entry_date', firstDayStr)
+        .lte('entry_date', lastDayStr);
+
+      if (error) {
+        console.error(JSON.stringify(error, null, 2));
+        return;
+      }
+
+      const totalSpent = (data || []).reduce((sum, entry) => sum + (entry.amount || 0), 0);
+      const formattedValue = totalSpent.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+      setBudgetThisMonth(formattedValue);
+    } catch (error) {
+      console.error(JSON.stringify(error, null, 2));
     }
   };
 
@@ -207,7 +249,7 @@ export default function Dashboard() {
               <StatCard
                 index={1}
                 title="Budget This Month"
-                value="₹4,200"
+                value={budgetThisMonth}
                 subtitle="Total spent"
                 to="/budget"
                 color="emerald"
