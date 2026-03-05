@@ -108,11 +108,13 @@ export default function Dashboard() {
   const [newLabelName, setNewLabelName] = useState('');
   const [todaysTaskCount, setTodaysTaskCount] = useState<string>("0");
   const [budgetThisMonth, setBudgetThisMonth] = useState<string>("₹0");
+  const [upcomingRemindersCount, setUpcomingRemindersCount] = useState<string>("0");
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchTodaysTaskCount();
     fetchBudgetThisMonth();
+    fetchUpcomingRemindersCount();
   }, []);
 
   const fetchTodaysTaskCount = async () => {
@@ -159,10 +161,10 @@ export default function Dashboard() {
       const today = new Date();
       const year = today.getFullYear();
       const month = today.getMonth();
-      
+
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
-      
+
       const firstDayStr = firstDay.toISOString().split('T')[0];
       const lastDayStr = lastDay.toISOString().split('T')[0];
 
@@ -182,6 +184,26 @@ export default function Dashboard() {
       const totalSpent = (data || []).reduce((sum, entry) => sum + (entry.amount || 0), 0);
       const formattedValue = totalSpent.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
       setBudgetThisMonth(formattedValue);
+    } catch (error) {
+      console.error(JSON.stringify(error, null, 2));
+    }
+  };
+
+  const fetchUpcomingRemindersCount = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { count, error } = await supabase
+        .from('reminders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
+      if (error) {
+        throw error;
+      }
+      setUpcomingRemindersCount(count ? count.toString() : "0");
     } catch (error) {
       console.error(JSON.stringify(error, null, 2));
     }
@@ -260,8 +282,8 @@ export default function Dashboard() {
               <StatCard
                 index={2}
                 title="Upcoming Reminders"
-                value="2"
-                subtitle="Scheduled for today"
+                value={upcomingRemindersCount}
+                subtitle="Pending reminders"
                 to="/reminders"
                 color="amber"
                 imageUrl="https://cdn3d.iconscout.com/3d/premium/thumb/calendar-5381346-4497556.png"

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Plus, Bell, X, Sparkles } from 'lucide-react';
+import { Plus, Bell, Sparkles } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
+import { supabase } from '../lib/supabase';
 
 interface Reminder {
   id: string;
@@ -11,22 +12,167 @@ interface Reminder {
   taskName?: string;
   section: 'Today' | 'Upcoming';
   date?: string;
+  rawTime: Date;
 }
 
-const initialReminders: Reminder[] = [
-  { id: '1', title: 'Call with design team', time: '3:00 PM', taskName: 'Design system update', section: 'Today' },
-  { id: '2', title: 'Submit tax reports', time: '5:30 PM', taskName: 'Budget review', section: 'Today' },
-  { id: '3', title: 'Grocery shopping', time: '10:00 AM', date: 'Mar 2', taskName: 'Buy groceries', section: 'Upcoming' },
-  { id: '4', title: 'Client follow-up', time: '2:00 PM', date: 'Mar 3', taskName: 'Call client', section: 'Upcoming' },
-  { id: '5', title: 'Gym session', time: '6:00 PM', date: 'Mar 4', taskName: 'Gym session', section: 'Upcoming' },
-];
-
 export default function Reminders() {
-  const [reminders, setReminders] = useState<Reminder[]>(initialReminders);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const dismissReminder = (id: string) => {
+  const [newTitle, setNewTitle] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+
+  const fetchReminders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('reminders')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      if (data) {
+        const mappedReminders: Reminder[] = data.map((r: any) => {
+          const d = new Date(r.reminder_time);
+          const today = new Date();
+          today.setHours(23, 59, 59, 999);
+
+          const isTodayOrPast = d <= today;
+
+          return {
+            id: r.id,
+            title: r.title,
+            time: d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+            date: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+            taskName: r.description || undefined,
+            section: isTodayOrPast ? 'Today' : 'Upcoming',
+            rawTime: d,
+          };
+        });
+
+        // Sort ascending by time
+        mappedReminders.sort((a, b) => {
+          return a.rawTime.getTime() - b.rawTime.getTime();
+        });
+
+        setReminders(mappedReminders);
+      }
+    } catch (error) {
+      console.error(JSON.stringify(error, null, 2));
+    }
+  };
+
+  useEffect(() => {
+    // Request notification permission on load
+    if ('Notification' in window && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+
+    fetchReminders();
+
+    const channel = supabase
+      .channel('reminders_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reminders' }, () => {
+        fetchReminders();
+      })
+      .subscribe();
+
+    const intervalId = setInterval(() => {
+      setReminders(currentReminders => {
+        const now = new Date();
+        const expiredReminders = currentReminders.filter(r => r.rawTime <= now);
+
+        expiredReminders.forEach(async (reminder) => {
+          // Trigger notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('⏰ Reminder', {
+              body: reminder.title
+            });
+          }
+
+          // Mark as dismissed in Supabase so it does NOT fire again
+          try {
+            const { error } = await supabase
+              .from('reminders')
+              .update({ status: 'dismissed' })
+              .eq('id', reminder.id);
+
+            if (error) throw error;
+            fetchReminders();
+          } catch (error) {
+            console.error(JSON.stringify(error, null, 2));
+          }
+        });
+
+        // Eagerly remove the ones we just notified about from the UI array
+        if (expiredReminders.length > 0) {
+          return currentReminders.filter(r => r.rawTime > now);
+        }
+        return currentReminders;
+      });
+    }, 10000); // Check every 10 seconds
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  const dismissReminder = async (id: string) => {
+    // Optimistic UI update
     setReminders(reminders.filter(r => r.id !== id));
+
+    try {
+      const { error } = await supabase
+        .from('reminders')
+        .update({ status: 'dismissed' })
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchReminders();
+    } catch (error) {
+      console.error(JSON.stringify(error, null, 2));
+      fetchReminders();
+    }
+  };
+
+  const handleAddReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle || !newDate || !newTime) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const reminder_time = new Date(`${newDate}T${newTime}`).toISOString();
+
+      const { error } = await supabase.from('reminders').insert([
+        {
+          title: newTitle,
+          description: newDesc,
+          reminder_time,
+          user_id: user.id,
+          status: 'pending'
+        }
+      ]);
+
+      if (error) throw error;
+
+      setIsModalOpen(false);
+      setNewTitle('');
+      setNewDate('');
+      setNewTime('');
+      setNewDesc('');
+      fetchReminders();
+    } catch (error) {
+      console.error(JSON.stringify(error, null, 2));
+    }
   };
 
   const todayReminders = reminders.filter(r => r.section === 'Today');
@@ -35,11 +181,11 @@ export default function Reminders() {
   return (
     <div className="min-h-screen bg-[#020817] text-white font-sans flex flex-col">
       <Navbar />
-      
+
       <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <h2 className="text-3xl md:text-4xl font-black tracking-tight">Reminders</h2>
-          <button 
+          <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold uppercase tracking-widest transition-all shadow-lg shadow-blue-600/30 active:scale-95"
           >
@@ -73,7 +219,7 @@ export default function Reminders() {
                       </div>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => dismissReminder(reminder.id)}
                     className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
                   >
@@ -114,7 +260,7 @@ export default function Reminders() {
                       </div>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => dismissReminder(reminder.id)}
                     className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
                   >
@@ -153,43 +299,56 @@ export default function Reminders() {
       </main>
 
       {/* Add Reminder Modal */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         title="Add New Reminder"
       >
-        <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); setIsModalOpen(false); }}>
+        <form className="space-y-5" onSubmit={handleAddReminder}>
           <div>
             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Reminder Title</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="What should we remind you about?"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              required
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Date</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                required
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
               />
             </div>
             <div>
               <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Time</label>
-              <input 
-                type="time" 
+              <input
+                type="time"
+                value={newTime}
+                onChange={(e) => setNewTime(e.target.value)}
+                required
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
               />
             </div>
           </div>
           <div>
             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Link to Task (Optional)</label>
-            <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none">
+            <select
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
+            >
               <option value="">None</option>
-              <option value="1">Design system update</option>
-              <option value="2">Review budget spreadsheet</option>
-              <option value="3">Buy groceries</option>
+              <option value="Design system update">Design system update</option>
+              <option value="Review budget spreadsheet">Review budget spreadsheet</option>
+              <option value="Buy groceries">Buy groceries</option>
             </select>
           </div>
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
@@ -202,7 +361,7 @@ export default function Reminders() {
             </div>
           </div>
           <div className="flex gap-3 pt-4">
-            <button 
+            <button
               type="submit"
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/20 uppercase text-xs tracking-widest"
             >
