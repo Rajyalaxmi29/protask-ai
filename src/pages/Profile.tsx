@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -45,6 +45,7 @@ export default function Profile() {
   const [securityToast, setSecurityToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [lastSignIn, setLastSignIn] = useState('');
   const [provider, setProvider] = useState('');
+  const toastTimeoutRef = useRef<number | null>(null);
   const [stats, setStats] = useState<UserStats>({
     totalTasks: 0,
     completedTasks: 0,
@@ -75,7 +76,7 @@ export default function Profile() {
         .from('profiles')
         .select('full_name')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       setDisplayName(
         profile?.full_name ||
@@ -124,9 +125,24 @@ export default function Profile() {
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current !== null) {
+        clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const showSecurityToast = (message: string, type: 'success' | 'error') => {
+    if (toastTimeoutRef.current !== null) {
+      clearTimeout(toastTimeoutRef.current);
+    }
     setSecurityToast({ message, type });
-    window.setTimeout(() => setSecurityToast(null), 3000);
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setSecurityToast(null);
+      toastTimeoutRef.current = null;
+    }, 3000);
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -186,12 +202,25 @@ export default function Profile() {
       // Delete user data from all tables
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await Promise.all([
+        const tableNames = ['tasks', 'files', 'reminders', 'budget_entries', 'profiles'] as const;
+        const results = await Promise.allSettled([
           supabase.from('tasks').delete().eq('user_id', user.id),
           supabase.from('files').delete().eq('user_id', user.id),
           supabase.from('reminders').delete().eq('user_id', user.id),
           supabase.from('budget_entries').delete().eq('user_id', user.id),
+          supabase.from('profiles').delete().eq('id', user.id),
         ]);
+
+        const failures = results
+          .map((r, i) => (r.status === 'rejected' ? tableNames[i] : null))
+          .filter(Boolean);
+
+        if (failures.length > 0) {
+          console.error('Failed to delete data from:', failures.join(', '));
+          showSecurityToast(`Failed to delete data from: ${failures.join(', ')}`, 'error');
+          setDeleting(false);
+          return;
+        }
 
         // Delete storage files
         const { data: storageFiles } = await supabase.storage
@@ -228,6 +257,7 @@ export default function Profile() {
 
       if (error) {
         console.error(error);
+        showSecurityToast(`Failed to update name: ${error.message}`, 'error');
         return;
       }
 
