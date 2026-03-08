@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Plus, FileText, Image as ImageIcon, FileCode, Trash2, Eye, Upload, AlertTriangle } from 'lucide-react';
+import { Plus, FileText, Image as ImageIcon, FileCode, Trash2, Eye, Upload } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
 import { supabase } from '../lib/supabase';
@@ -10,8 +10,6 @@ interface FileData {
   name: string;
   type: 'PDF' | 'JPG' | 'DOCX';
   uploadDate: string;
-  expiryDate?: string;
-  rawExpiryDate?: string;
   tags: string[];
   category: string;
   filePath: string;
@@ -24,7 +22,6 @@ interface DBFile {
   file_path: string;
   category: string;
   tags: string;
-  expiry_date: string | null;
   created_at: string;
 }
 
@@ -33,14 +30,13 @@ const STORAGE_BUCKET = 'documents';
 
 export default function Files() {
   const [files, setFiles] = useState<FileData[]>([]);
-  const [filter, setFilter] = useState<'All' | 'Expiring' | 'Tag'>('All');
+  const [filter, setFilter] = useState<'All' | 'Tag'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState('');
   const [loading, setLoading] = useState(true);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentName, setDocumentName] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
   const [category, setCategory] = useState('Personal');
   const [tags, setTags] = useState('');
 
@@ -90,8 +86,6 @@ export default function Files() {
     name: f.file_name,
     type: getFileType(f.file_name),
     uploadDate: formatDate(f.created_at) || '',
-    expiryDate: formatDate(f.expiry_date),
-    rawExpiryDate: f.expiry_date || undefined,
     tags: (f.tags || '').split(',').map(tag => tag.trim()).filter(Boolean),
     category: f.category,
     filePath: f.file_path,
@@ -220,7 +214,6 @@ export default function Files() {
           file_path: filePath,
           category,
           tags,
-          expiry_date: expiryDate || null,
           user_id: user.id,
         });
 
@@ -234,7 +227,6 @@ export default function Files() {
       setIsModalOpen(false);
       setSelectedFile(null);
       setDocumentName('');
-      setExpiryDate('');
       setCategory('Personal');
       setTags('');
       showToast('Upload success', 'success');
@@ -242,18 +234,6 @@ export default function Files() {
       console.error(JSON.stringify(error, null, 2));
       showToast('Upload error', 'error');
     }
-  };
-
-  const isExpiringSoon = (date?: string) => {
-    if (!date) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expiry = new Date(date);
-    expiry.setHours(0, 0, 0, 0);
-
-    const diffMs = expiry.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 30;
   };
 
   const allTags = useMemo<string[]>(
@@ -268,15 +248,12 @@ export default function Files() {
   }, [allTags, selectedTag]);
 
   const filteredFiles = files.filter(f => {
-    if (filter === 'Expiring') return isExpiringSoon(f.rawExpiryDate);
     if (filter === 'Tag') {
       if (!selectedTag) return true;
       return f.tags.some(tag => tag.toLowerCase() === selectedTag.toLowerCase());
     }
     return true;
   });
-
-  const expiringCount = files.filter(f => isExpiringSoon(f.rawExpiryDate)).length;
 
   return (
     <div className="min-h-screen bg-[#020817] text-white font-sans flex flex-col">
@@ -291,19 +268,6 @@ export default function Files() {
       )}
 
       <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
-        {expiringCount > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4 text-red-500"
-          >
-            <AlertTriangle size={20} className="shrink-0" />
-            <p className="text-[10px] md:text-sm font-bold uppercase tracking-widest">
-              ⚠️ {expiringCount} document{expiringCount > 1 ? 's are' : ' is'} expiring within 30 days. Review now.
-            </p>
-          </motion.div>
-        )}
-
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <h2 className="text-3xl md:text-4xl font-black tracking-tight">Files & Documents</h2>
           <button
@@ -319,13 +283,12 @@ export default function Files() {
         <div className="flex items-center gap-2 mb-12 p-1 bg-white/5 rounded-full w-full md:w-fit overflow-x-auto no-scrollbar">
           {[
             { id: 'All', label: 'All Files' },
-            { id: 'Expiring', label: 'Expiring Soon' },
             { id: 'Tag', label: 'By Tag' }
           ].map((f) => (
             <button
               key={f.id}
               onClick={() => {
-                const nextFilter = f.id as 'All' | 'Expiring' | 'Tag';
+                const nextFilter = f.id as 'All' | 'Tag';
                 setFilter(nextFilter);
                 if (nextFilter === 'Tag' && !selectedTag && allTags.length > 0) {
                   setSelectedTag(allTags[0]);
@@ -396,13 +359,6 @@ export default function Files() {
 
                 <h4 className="font-bold text-base md:text-lg text-white mb-1 truncate pr-8">{file.name}</h4>
                 <p className="text-[9px] md:text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">{file.uploadDate}</p>
-
-                {file.expiryDate && (
-                  <div className={`mb-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest ${isExpiringSoon(file.rawExpiryDate) ? 'bg-red-500/10 text-red-500' : 'bg-white/5 text-gray-400'
-                    }`}>
-                    Exp: {file.expiryDate}
-                  </div>
-                )}
 
                 <div className="flex flex-wrap gap-2 mb-6">
                   {file.tags.map(tag => (
@@ -476,30 +432,19 @@ export default function Files() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Expiry Date (Optional)</label>
-              <input
-                type="date"
-                value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
-              >
-                <option value="Personal">Personal</option>
-                <option value="Work">Work</option>
-                <option value="Finance">Finance</option>
-                <option value="Medical">Medical</option>
-                <option value="Legal">Legal</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
+            >
+              <option value="Personal">Personal</option>
+              <option value="Work">Work</option>
+              <option value="Finance">Finance</option>
+              <option value="Medical">Medical</option>
+              <option value="Legal">Legal</option>
+            </select>
           </div>
 
           <div>

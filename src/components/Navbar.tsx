@@ -69,9 +69,9 @@ export default function Navbar() {
         ))}
 
         <div className="ml-6 flex items-center gap-3 pl-6 border-l border-white/10">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all">
+          <Link to="/profile" className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all hover:scale-110">
             <User size={18} className="text-white" />
-          </div>
+          </Link>
         </div>
       </nav>
 
@@ -113,15 +113,15 @@ export default function Navbar() {
                 onClick={() => setIsMenuOpen(false)}
               />
             ))}
-            <div className="mt-8 pt-8 border-t border-white/5 flex items-center gap-4">
+            <Link to="/profile" onClick={() => setIsMenuOpen(false)} className="mt-8 pt-8 border-t border-white/5 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10">
                 <User size={24} className="text-white" />
               </div>
               <div>
-                <p className="font-bold text-white">Alex Johnson</p>
-                <p className="text-xs text-gray-500 uppercase tracking-widest">Pro Member</p>
+                <p className="font-bold text-white">My Profile</p>
+                <p className="text-xs text-gray-500 uppercase tracking-widest">View account</p>
               </div>
-            </div>
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>

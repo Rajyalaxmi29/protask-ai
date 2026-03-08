@@ -33,6 +33,19 @@ export default function Login() {
     }
 
     if (data.user) {
+      // Fetch profile name and store in user metadata if available
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profile?.full_name && !data.user.user_metadata?.display_name) {
+        await supabase.auth.updateUser({
+          data: { display_name: profile.full_name, full_name: profile.full_name },
+        });
+      }
+
       navigate('/dashboard');
     }
   };

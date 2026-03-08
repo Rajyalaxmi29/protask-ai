@@ -111,13 +111,40 @@ export default function Dashboard() {
   const [todaysTaskCount, setTodaysTaskCount] = useState<string>("0");
   const [budgetThisMonth, setBudgetThisMonth] = useState<string>("₹0");
   const [upcomingRemindersCount, setUpcomingRemindersCount] = useState<string>("0");
+  const [documentsCount, setDocumentsCount] = useState<string>("0");
+  const [userName, setUserName] = useState<string>('');
   const navigate = useNavigate();
 
   useEffect(() => {
+    fetchUserName();
     fetchTodaysTaskCount();
     fetchBudgetThisMonth();
     fetchUpcomingRemindersCount();
+    fetchDocumentsCount();
   }, []);
+
+  const fetchUserName = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      setUserName(
+        profile?.full_name ||
+        user.user_metadata?.display_name ||
+        user.user_metadata?.full_name ||
+        user.email?.split('@')[0] ||
+        'there'
+      );
+    } catch {
+      setUserName('there');
+    }
+  };
 
   const fetchTodaysTaskCount = async () => {
     try {
@@ -211,6 +238,26 @@ export default function Dashboard() {
     }
   };
 
+  const fetchDocumentsCount = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { count, error } = await supabase
+        .from('files')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Documents count error:', JSON.stringify(error, null, 2));
+        return;
+      }
+      setDocumentsCount(count ? count.toString() : "0");
+    } catch (error) {
+      console.error(JSON.stringify(error, null, 2));
+    }
+  };
+
   const handleCreateLabel = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLabelName.trim()) return;
@@ -231,7 +278,7 @@ export default function Dashboard() {
         <div className="p-8 max-w-7xl mx-auto w-full">
           <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-bold mb-1">Good morning, Alex</h2>
+              <h2 className="text-3xl font-bold mb-1">Good morning{userName ? `, ${userName}` : ''}</h2>
               <p className="text-gray-500">Here's what's happening with your projects today.</p>
             </div>
             <button
@@ -281,9 +328,9 @@ export default function Dashboard() {
             <div className="lg:col-start-2 lg:mt-12">
               <StatCard
                 index={3}
-                title="Files Expiring"
-                value="1"
-                subtitle="Document review needed"
+                title="My Documents"
+                value={documentsCount}
+                subtitle="Files uploaded"
                 to="/files"
                 color="rose"
                 imageUrl="https://cdn3d.iconscout.com/3d/premium/thumb/folder-5381345-4497555.png"

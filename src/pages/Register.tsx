@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 
 export default function Register() {
     const navigate = useNavigate();
+    const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -18,18 +19,31 @@ export default function Register() {
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
+            options: {
+                data: { display_name: fullName.trim(), full_name: fullName.trim() },
+            },
         });
 
-        setLoading(false);
-
         if (error) {
+            setLoading(false);
             alert(error.message);
             return;
         }
 
         if (data.user) {
+            // Insert into profiles table
+            await supabase.from('profiles').upsert({
+                id: data.user.id,
+                full_name: fullName.trim(),
+                email: email,
+                created_at: new Date().toISOString(),
+            });
+
+            setLoading(false);
             alert('Registration successful! Please log in.');
             navigate('/login');
+        } else {
+            setLoading(false);
         }
     };
 
@@ -60,6 +74,20 @@ export default function Register() {
 
                     <form onSubmit={handleRegister} className="space-y-5">
                         <div className="space-y-4">
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <User className="h-5 w-5 text-gray-500" />
+                                </div>
+                                <input
+                                    type="text"
+                                    required
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                    placeholder="Full Name"
+                                />
+                            </div>
+
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <Mail className="h-5 w-5 text-gray-500" />
