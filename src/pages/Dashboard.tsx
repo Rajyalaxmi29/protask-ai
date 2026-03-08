@@ -69,6 +69,8 @@ const StatCard = ({ title, value, subtitle, to, color = "blue", index, scene, im
                 scene={scene!}
                 style={{ width: '100%', height: '100%' }}
               />
+              {/* Cover Spline watermark with background color */}
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '250px', height: '60px', backgroundColor: '#050505', zIndex: 9999999 }} />
             </div>
           )}
         </div>
@@ -221,19 +223,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans flex flex-col">
-      {/* CSS to hide Spline Watermark */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        #spline-watermark, 
-        .spline-watermark,
-        a[href*="spline.design"] { 
-          display: none !important; 
-          visibility: hidden !important;
-          opacity: 0 !important;
-          pointer-events: none !important;
-        }
-      `}} />
-
       <Navbar />
 
       {/* Main Content */}

@@ -14,20 +14,29 @@ export default function Home() {
         />
       </div>
 
-      {/* CSS to hide Spline Watermark */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        #spline-watermark, 
-        a[href*="spline.design"],
-        div[style*="z-index: 1000000"],
-        div[style*="position: absolute"][style*="bottom: 10px"][style*="right: 10px"],
-        div[style*="position: absolute"][style*="bottom: 16px"][style*="right: 16px"],
-        .spline-watermark { 
-          display: none !important; 
-          visibility: hidden !important;
-          opacity: 0 !important;
-          pointer-events: none !important;
-        }
-      `}} />
+      {/* Cover Spline watermark with background color */}
+      <div style={{ position: 'absolute', bottom: 0, right: 0, width: '250px', height: '60px', backgroundColor: '#000000', zIndex: 10 }} />
+
+      {/* Cover "Clarity. Focus. Impact." and subtitle text with background color */}
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '55%', backgroundColor: '#000000', zIndex: 5 }} />
+
+      {/* Centered Quote */}
+      <div className="absolute top-[30%] left-0 right-0 z-20 flex flex-col items-center pointer-events-none px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }}
+          className="text-center"
+        >
+          <h2 className="text-lg md:text-3xl font-bold text-white tracking-tight leading-tight">
+            Organize Smarter.{' '}
+            <span className="text-blue-500">Achieve More.</span>
+          </h2>
+          <p className="mt-3 text-xs md:text-sm text-gray-400 tracking-wide max-w-md mx-auto">
+            Your AI-powered workspace to plan, track, and conquer every task effortlessly.
+          </p>
+        </motion.div>
+      </div>
 
       {/* Top Branding - Small and Concise */}
       <div className="absolute top-8 md:top-12 left-0 right-0 z-20 flex flex-col items-center pointer-events-none">
