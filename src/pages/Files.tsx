@@ -28,7 +28,8 @@ interface DBFile {
   created_at: string;
 }
 
-type FilesTableName = 'files' | 'documents';
+const FILES_TABLE = 'files';
+const STORAGE_BUCKET = 'documents';
 
 export default function Files() {
   const [files, setFiles] = useState<FileData[]>([]);
@@ -44,7 +45,6 @@ export default function Files() {
   const [tags, setTags] = useState('');
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [filesTable, setFilesTable] = useState<FilesTableName | null>(null);
 
   useEffect(() => {
     fetchFiles();
@@ -97,30 +97,6 @@ export default function Files() {
     filePath: f.file_path,
   });
 
-  const resolveFilesTable = async (userId: string): Promise<FilesTableName | null> => {
-    if (filesTable) return filesTable;
-
-    const candidates: FilesTableName[] = ['files', 'documents'];
-    for (const table of candidates) {
-      const { error } = await supabase
-        .from(table)
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId);
-
-      if (!error) {
-        setFilesTable(table);
-        return table;
-      }
-
-      if (getErrorCode(error) !== 'PGRST205') {
-        console.error(JSON.stringify(error, null, 2));
-        break;
-      }
-    }
-
-    return null;
-  };
-
   const fetchFiles = async () => {
     try {
       setLoading(true);
@@ -130,21 +106,14 @@ export default function Files() {
         return;
       }
 
-      const table = await resolveFilesTable(user.id);
-      if (!table) {
-        showToast('Files table not found', 'error');
-        setFiles([]);
-        return;
-      }
-
       const { data, error } = await supabase
-        .from(table)
+        .from(FILES_TABLE)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error(JSON.stringify(error, null, 2));
+        console.error('Fetch files error:', JSON.stringify(error, null, 2));
         showToast('Unable to fetch files', 'error');
         return;
       }
@@ -165,29 +134,23 @@ export default function Files() {
         return;
       }
 
-      const table = await resolveFilesTable(user.id);
-      if (!table) {
-        showToast('Delete error', 'error');
-        return;
-      }
-
       const { error: storageError } = await supabase.storage
-        .from('documents')
+        .from(STORAGE_BUCKET)
         .remove([file.filePath]);
 
       if (storageError) {
-        console.error(JSON.stringify(storageError, null, 2));
+        console.error('Storage delete error:', JSON.stringify(storageError, null, 2));
         showToast('Delete error', 'error');
         return;
       }
 
       const { error: dbError } = await supabase
-        .from(table)
+        .from(FILES_TABLE)
         .delete()
         .eq('id', file.id);
 
       if (dbError) {
-        console.error(JSON.stringify(dbError, null, 2));
+        console.error('DB delete error:', JSON.stringify(dbError, null, 2));
         showToast('Delete error', 'error');
         return;
       }
@@ -202,15 +165,22 @@ export default function Files() {
 
   const previewFile = async (file: FileData) => {
     try {
-      const { data } = supabase.storage
-        .from('documents')
-        .getPublicUrl(file.filePath);
+      const { data, error } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(file.filePath, 3600);
 
-      if (data?.publicUrl) {
-        window.open(data.publicUrl, '_blank', 'noopener,noreferrer');
+      if (error) {
+        console.error('Preview error:', JSON.stringify(error, null, 2));
+        showToast('Unable to preview file', 'error');
+        return;
+      }
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
       }
     } catch (error) {
       console.error(JSON.stringify(error, null, 2));
+      showToast('Preview error', 'error');
     }
   };
 
@@ -219,37 +189,32 @@ export default function Files() {
 
     try {
       if (!selectedFile) {
-        showToast('Upload error', 'error');
+        showToast('Please select a file', 'error');
         return;
       }
 
       const user = await getCurrentUser();
       if (!user) {
-        showToast('Upload error', 'error');
-        return;
-      }
-
-      const table = await resolveFilesTable(user.id);
-      if (!table) {
-        showToast('Upload error', 'error');
+        showToast('Please sign in first', 'error');
         return;
       }
 
       const finalName = documentName.trim() || selectedFile.name;
-      const filePath = `${user.id}/${selectedFile.name}`;
+      const timestamp = Date.now();
+      const filePath = `${user.id}/${timestamp}_${selectedFile.name}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('documents')
+        .from(STORAGE_BUCKET)
         .upload(filePath, selectedFile, { upsert: true });
 
       if (uploadError) {
-        console.error(JSON.stringify(uploadError, null, 2));
-        showToast('Upload error', 'error');
+        console.error('Storage upload error:', JSON.stringify(uploadError, null, 2));
+        showToast('File upload failed', 'error');
         return;
       }
 
       const { error: insertError } = await supabase
-        .from(table)
+        .from(FILES_TABLE)
         .insert({
           file_name: finalName,
           file_path: filePath,

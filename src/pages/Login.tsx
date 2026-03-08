@@ -44,6 +44,9 @@ export default function Login() {
         <Spline scene="https://prod.spline.design/A9DxtsyVZmcjfxXg/scene.splinecode" />
       </div>
 
+      {/* Cover Spline watermark with background color */}
+      <div style={{ position: 'absolute', bottom: 0, right: 0, width: '250px', height: '60px', backgroundColor: '#000000', zIndex: 50 }} />
+
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
