@@ -7,30 +7,11 @@ import { supabase } from '../lib/supabase';
 
 const ADMIN_EMAIL = 'rajyalaxmikunchala06@gmail.com';
 
-interface NavLinkProps {
-  key?: string | number;
+interface NavItem {
   label: string;
   to: string;
-  active?: boolean;
-  onClick?: () => void;
-  isAdmin?: boolean;
+  isAdmin: boolean;
 }
-
-const NavLink = ({ label, to, active = false, onClick, isAdmin = false }: NavLinkProps) => (
-  <Link
-    to={to}
-    onClick={onClick}
-    className={`px-4 py-2 rounded-full cursor-pointer transition-all text-sm font-semibold tracking-wide block md:inline-block ${active
-      ? isAdmin
-        ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
-        : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-      : isAdmin
-        ? 'text-violet-400 hover:text-white hover:bg-violet-500/10'
-        : 'text-gray-400 hover:text-white hover:bg-white/5'
-      }`}>
-    {label}
-  </Link>
-);
 
 export default function Navbar() {
   const location = useLocation();
@@ -44,7 +25,12 @@ export default function Navbar() {
     });
   }, []);
 
-  const baseNavItems: { label: string; to: string; isAdmin: boolean }[] = [
+  // Close menu on route change
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location.pathname]);
+
+  const baseNavItems: NavItem[] = [
     { label: 'Dashboard', to: '/dashboard', isAdmin: false },
     { label: 'Tasks', to: '/tasks', isAdmin: false },
     { label: 'Budget', to: '/budget', isAdmin: false },
@@ -52,117 +38,173 @@ export default function Navbar() {
     { label: 'Files', to: '/files', isAdmin: false },
   ];
 
-  // Admin sees "Admin Feedback" (violet), regular users see "Feedback"
-  const feedbackItem: { label: string; to: string; isAdmin: boolean } = isAdmin
+  const feedbackItem: NavItem = isAdmin
     ? { label: 'Admin Feedback', to: '/admin-feedback', isAdmin: true }
     : { label: 'Feedback', to: '/feedback', isAdmin: false };
 
   const navItems = [...baseNavItems, feedbackItem];
 
+  const isActive = (to: string) => location.pathname === to;
+
   return (
-    <header className="h-20 border-b border-white/5 px-4 md:px-8 flex items-center justify-between sticky top-0 bg-[#030303]/80 backdrop-blur-md z-50">
-      <Link to="/dashboard" className="flex items-center gap-2">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <CheckCircle2 size={18} className="text-white" />
-        </div>
-        <span className="text-xl font-bold tracking-tight text-white">ProTask AI</span>
-      </Link>
+    <>
+      {/* Header */}
+      <header className="h-16 md:h-20 border-b border-white/5 px-4 md:px-8 flex items-center justify-between sticky top-0 z-50" style={{ backgroundColor: '#030303' }}>
+        <Link to="/dashboard" className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+            <CheckCircle2 size={18} className="text-white" />
+          </div>
+          <span className="text-lg md:text-xl font-bold tracking-tight text-white">ProTask AI</span>
+        </Link>
 
-      {/* Desktop Nav */}
-      <nav className="hidden md:flex items-center gap-2">
-        {navItems.map(item => (
-          <NavLink
-            key={item.to}
-            label={item.label}
-            to={item.to}
-            active={location.pathname === item.to}
-            isAdmin={('isAdmin' in item ? item.isAdmin : false) as boolean}
-          />
-        ))}
-        {labels.length > 0 && (
-          <div className="w-px h-5 bg-white/10 mx-2" />
-        )}
-        {labels.map(label => (
-          <NavLink
-            key={`desktop-nav-${label.id}`}
-            label={label.name}
-            to={`/labels/${label.id}`}
-            active={location.pathname === `/labels/${label.id}`}
-          />
-        ))}
+        {/* Desktop Nav */}
+        <nav className="hidden md:flex items-center gap-1">
+          {navItems.map(item => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`px-4 py-2 rounded-full text-sm font-semibold tracking-wide transition-all ${isActive(item.to)
+                  ? item.isAdmin
+                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
+                    : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : item.isAdmin
+                    ? 'text-violet-400 hover:text-white hover:bg-violet-500/10'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+          {labels.map(label => (
+            <Link
+              key={label.id}
+              to={`/labels/${label.id}`}
+              className={`px-4 py-2 rounded-full text-sm font-semibold tracking-wide transition-all ${isActive(`/labels/${label.id}`)
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+            >
+              {label.name}
+            </Link>
+          ))}
 
-        <div className="ml-6 flex items-center gap-3 pl-6 border-l border-white/10">
-          {isAdmin && (
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-violet-500/10 border border-violet-500/20 rounded-full">
-              <Shield size={11} className="text-violet-400" />
-              <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Admin</span>
-            </div>
-          )}
-          <Link to="/profile" className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all hover:scale-110">
-            <User size={18} className="text-white" />
-          </Link>
-        </div>
-      </nav>
+          <div className="ml-4 flex items-center gap-3 pl-4 border-l border-white/10">
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-violet-500/10 border border-violet-500/20 rounded-full">
+                <Shield size={11} className="text-violet-400" />
+                <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Admin</span>
+              </div>
+            )}
+            <Link to="/profile" className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10 hover:border-white/30 transition-all hover:scale-110">
+              <User size={18} className="text-white" />
+            </Link>
+          </div>
+        </nav>
 
-      {/* Mobile Menu Toggle */}
-      <button
-        className="md:hidden p-2 text-gray-400 hover:text-white relative z-[60]"
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-      >
-        {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
+        {/* Mobile hamburger — always on top */}
+        <button
+          className="md:hidden p-2 text-gray-400 hover:text-white z-[70] relative"
+          onClick={() => setIsMenuOpen(v => !v)}
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </header>
 
-      {/* Mobile Nav Overlay */}
+      {/* Mobile Nav Overlay — rendered outside header so z-index is simpler */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
-            initial={{ y: '-100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '-100%' }}
-            transition={{ type: 'tween', duration: 0.25, ease: 'easeOut' }}
-            style={{ backgroundColor: '#030303' }}
-            className="fixed inset-0 z-[55] flex flex-col pt-24 px-6 pb-10 gap-3 overflow-y-auto"
+            key="mobile-nav"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[60] md:hidden"
+            style={{ backgroundColor: '#0a0a0a' }}
           >
-            {isAdmin && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-violet-500/10 border border-violet-500/20 rounded-xl mb-2">
-                <Shield size={13} className="text-violet-400" />
-                <span className="text-xs font-bold text-violet-400 uppercase tracking-widest">Admin Mode</span>
+            {/* Scrollable nav content, pushed below the header */}
+            <div className="h-full overflow-y-auto pt-16 pb-10 px-5 flex flex-col">
+
+              {/* Admin badge */}
+              {isAdmin && (
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-violet-500/10 border border-violet-500/20 rounded-2xl mb-4">
+                  <Shield size={14} className="text-violet-400" />
+                  <span className="text-xs font-bold text-violet-400 uppercase tracking-widest">Admin Mode</span>
+                </div>
+              )}
+
+              {/* Nav items */}
+              <nav className="flex flex-col gap-1 mb-6">
+                {navItems.map((item, i) => (
+                  <motion.div
+                    key={item.to}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.04, duration: 0.2 }}
+                  >
+                    <Link
+                      to={item.to}
+                      className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl text-base font-semibold transition-all ${isActive(item.to)
+                          ? item.isAdmin
+                            ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30'
+                            : 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                          : 'text-gray-300 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive(item.to)
+                          ? item.isAdmin ? 'bg-violet-400' : 'bg-blue-400'
+                          : 'bg-gray-600'
+                        }`} />
+                      {item.label}
+                    </Link>
+                  </motion.div>
+                ))}
+
+                {/* Custom labels */}
+                {labels.length > 0 && (
+                  <div className="h-px bg-white/5 mx-2 my-2" />
+                )}
+                {labels.map((label, i) => (
+                  <motion.div
+                    key={label.id}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: (navItems.length + i) * 0.04, duration: 0.2 }}
+                  >
+                    <Link
+                      to={`/labels/${label.id}`}
+                      className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl text-base font-semibold transition-all ${isActive(`/labels/${label.id}`)
+                          ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                          : 'text-gray-300 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive(`/labels/${label.id}`) ? 'bg-blue-400' : 'bg-gray-600'}`} />
+                      {label.name}
+                    </Link>
+                  </motion.div>
+                ))}
+              </nav>
+
+              {/* Profile section at the bottom */}
+              <div className="mt-auto pt-6 border-t border-white/5">
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-white/5 transition-all"
+                >
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10 shrink-0">
+                    <User size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-sm">My Profile</p>
+                    <p className="text-xs text-gray-500 font-mono uppercase tracking-widest">View account</p>
+                  </div>
+                </Link>
               </div>
-            )}
-            {navItems.map(item => (
-              <NavLink
-                key={item.to}
-                label={item.label}
-                to={item.to}
-                active={location.pathname === item.to}
-                isAdmin={'isAdmin' in item ? item.isAdmin : false}
-                onClick={() => setIsMenuOpen(false)}
-              />
-            ))}
-            {labels.length > 0 && (
-              <div className="h-px w-full bg-white/5 my-2" />
-            )}
-            {labels.map(label => (
-              <NavLink
-                key={`mobile-nav-${label.id}`}
-                label={label.name}
-                to={`/labels/${label.id}`}
-                active={location.pathname === `/labels/${label.id}`}
-                onClick={() => setIsMenuOpen(false)}
-              />
-            ))}
-            <Link to="/profile" onClick={() => setIsMenuOpen(false)} className="mt-8 pt-8 border-t border-white/5 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/10">
-                <User size={24} className="text-white" />
-              </div>
-              <div>
-                <p className="font-bold text-white">My Profile</p>
-                <p className="text-xs text-gray-500 uppercase tracking-widest">View account</p>
-              </div>
-            </Link>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </header>
+    </>
   );
 }
