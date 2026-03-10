@@ -5,6 +5,7 @@ import { Plus, CheckCircle2, Trash2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
 import { useCustomLabels, useLabelItems } from '../lib/useCustomLabels';
+import LightBeamButton from '../components/LightBeamButton';
 
 export default function LabelDetail() {
     const { id } = useParams<{ id: string }>();
@@ -47,22 +48,22 @@ export default function LabelDetail() {
             <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-3xl md:text-4xl font-black tracking-tight">{label?.name || 'Loading...'}</h2>
-                        <button
+                        <h2 className="text-3xl md:text-4xl font-black tracking-tight font-serif font-normal tracking-[-0.02em]">{label?.name || 'Loading...'}</h2>
+                        <LightBeamButton
                             onClick={handleDeleteLabel}
                             className="p-2 text-red-500 hover:bg-red-500/10 rounded-full transition-all"
                             title="Delete Label"
                         >
                             <Trash2 size={20} />
-                        </button>
+                        </LightBeamButton>
                     </div>
-                    <button
+                    <LightBeamButton
                         onClick={() => setIsModalOpen(true)}
                         className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold uppercase tracking-widest transition-all shadow-lg shadow-blue-600/30 active:scale-95"
                     >
                         <Plus size={18} />
                         Add Item
-                    </button>
+                    </LightBeamButton>
                 </div>
 
                 {/* Task List */}
@@ -72,16 +73,16 @@ export default function LabelDetail() {
                             <motion.div
                                 layout
                                 key={task.id}
-                                className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#141414] border border-white/5 rounded-2xl hover:border-white/10 transition-all group gap-4"
+                                className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-2xl hover:border-white/10 transition-all group gap-4"
                             >
                                 <div className="flex items-center gap-5">
-                                    <button
+                                    <LightBeamButton
                                         onClick={() => toggleItem(task.id)}
                                         className={`w-6 h-6 shrink-0 rounded-lg border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-blue-600 border-blue-600' : 'border-gray-600 hover:border-blue-500'
                                             }`}
                                     >
                                         {task.completed && <CheckCircle2 size={14} className="text-white" />}
-                                    </button>
+                                    </LightBeamButton>
                                     <div className="min-w-0">
                                         <h4 className={`font-bold text-base md:text-lg transition-all truncate ${task.completed ? 'text-gray-600 line-through' : 'text-white'}`}>
                                             {task.title}
@@ -90,17 +91,17 @@ export default function LabelDetail() {
                                 </div>
 
                                 <div className="flex items-center justify-between sm:justify-end gap-6">
-                                    <button
+                                    <LightBeamButton
                                         onClick={() => removeItem(task.id)}
                                         className="text-gray-600 hover:text-red-500 transition-colors"
                                     >
                                         <Trash2 size={20} />
-                                    </button>
+                                    </LightBeamButton>
                                 </div>
                             </motion.div>
                         ))
                     ) : (
-                        <div className="text-center py-20 bg-[#141414] rounded-3xl border border-dashed border-white/10">
+                        <div className="text-center py-20 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 rounded-3xl border border-dashed border-white/10">
                             <p className="text-gray-500 font-medium px-6">Nothing here yet. Click + to add your first item.</p>
                         </div>
                     )}
@@ -108,7 +109,7 @@ export default function LabelDetail() {
 
                 {/* Progress Bar */}
                 {items.length > 0 && (
-                    <div className="bg-[#141414] p-6 rounded-3xl border border-white/5">
+                    <div className="bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 p-6 rounded-3xl border border-white/5">
                         <div className="flex justify-between items-center mb-4">
                             <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
                                 {completedCount} of {items.length} items completed
@@ -134,7 +135,7 @@ export default function LabelDetail() {
             >
                 <form className="space-y-5" onSubmit={handleCreateTask}>
                     <div>
-                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Item Title</label>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Item Title</label>
                         <input
                             type="text"
                             placeholder="What needs to be done?"
@@ -146,19 +147,19 @@ export default function LabelDetail() {
                     </div>
 
                     <div className="flex gap-3 pt-4">
-                        <button
+                        <LightBeamButton
                             type="submit"
                             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/20 uppercase text-xs tracking-widest"
                         >
                             Save Item
-                        </button>
-                        <button
+                        </LightBeamButton>
+                        <LightBeamButton
                             type="button"
                             onClick={() => setIsModalOpen(false)}
                             className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-xl transition-all uppercase text-xs tracking-widest"
                         >
                             Cancel
-                        </button>
+                        </LightBeamButton>
                     </div>
                 </form>
             </Modal>

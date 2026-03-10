@@ -10,6 +10,8 @@ import Reminders from './pages/Reminders';
 import Files from './pages/Files';
 import LabelDetail from './pages/LabelDetail';
 import Profile from './pages/Profile';
+import Feedback from './pages/Feedback';
+import AdminFeedback from './pages/AdminFeedback';
 
 export default function App() {
   return (
@@ -24,6 +26,8 @@ export default function App() {
         <Route path="/reminders" element={<Reminders />} />
         <Route path="/files" element={<Files />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/feedback" element={<Feedback />} />
+        <Route path="/admin-feedback" element={<AdminFeedback />} />
         <Route path="/labels/:id" element={<LabelDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

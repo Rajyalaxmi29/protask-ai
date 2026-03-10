@@ -4,6 +4,7 @@ import { Plus, FileText, Image as ImageIcon, FileCode, Trash2, Eye, Upload } fro
 import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
 import { supabase } from '../lib/supabase';
+import LightBeamButton from '../components/LightBeamButton';
 
 interface FileData {
   id: string;
@@ -269,14 +270,14 @@ export default function Files() {
 
       <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight">Files & Documents</h2>
-          <button
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight font-serif font-normal tracking-[-0.02em]">Files & Documents</h2>
+          <LightBeamButton
             onClick={() => setIsModalOpen(true)}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold uppercase tracking-widest transition-all shadow-lg shadow-blue-600/30 active:scale-95"
           >
             <Plus size={18} />
             Upload File
-          </button>
+          </LightBeamButton>
         </div>
 
         {/* Filter Tabs - Scrollable on mobile */}
@@ -330,7 +331,7 @@ export default function Files() {
             Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={`skeleton-${index}`}
-                className="bg-[#141414] border border-white/5 rounded-3xl p-6 animate-pulse"
+                className="bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-3xl p-6 animate-pulse"
               >
                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/5 mb-6" />
                 <div className="h-6 bg-white/5 rounded mb-2" />
@@ -351,7 +352,7 @@ export default function Files() {
               <motion.div
                 layout
                 key={file.id}
-                className="bg-[#141414] border border-white/5 rounded-3xl p-6 hover:border-blue-500/30 transition-all group relative"
+                className="bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-3xl p-6 hover:border-blue-500/30 transition-all group relative"
               >
                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-6 text-gray-400 group-hover:text-blue-500 transition-colors shrink-0">
                   {file.type === 'PDF' ? <FileText size={24} className="md:w-7 md:h-7" /> : file.type === 'JPG' ? <ImageIcon size={24} className="md:w-7 md:h-7" /> : <FileCode size={24} className="md:w-7 md:h-7" />}
@@ -394,7 +395,7 @@ export default function Files() {
               </motion.div>
             ))
           ) : (
-            <div className="col-span-full text-center py-20 bg-[#141414] rounded-3xl border border-dashed border-white/10">
+            <div className="col-span-full text-center py-20 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 rounded-3xl border border-dashed border-white/10">
               <p className="text-gray-500 font-medium px-6">Nothing here yet. Click + to add your first one.</p>
             </div>
           )}
@@ -422,7 +423,7 @@ export default function Files() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Document Name</label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Document Name</label>
             <input
               type="text"
               placeholder="e.g. Passport_Copy.pdf"
@@ -433,22 +434,22 @@ export default function Files() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Category</label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Category</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none [color-scheme:dark]"
             >
-              <option value="Personal">Personal</option>
-              <option value="Work">Work</option>
-              <option value="Finance">Finance</option>
-              <option value="Medical">Medical</option>
-              <option value="Legal">Legal</option>
+              <option value="Personal" className="bg-[#141414] text-white">Personal</option>
+              <option value="Work" className="bg-[#141414] text-white">Work</option>
+              <option value="Finance" className="bg-[#141414] text-white">Finance</option>
+              <option value="Medical" className="bg-[#141414] text-white">Medical</option>
+              <option value="Legal" className="bg-[#141414] text-white">Legal</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Tags (comma separated)</label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Tags (comma separated)</label>
             <input
               type="text"
               placeholder="e.g. ID, Passport, 2026"

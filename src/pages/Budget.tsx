@@ -5,6 +5,7 @@ import { Plus, ArrowUpRight, ArrowDownRight, Coffee, Car, ShoppingBag, MoreHoriz
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
+import LightBeamButton from '../components/LightBeamButton';
 
 interface BudgetEntry {
     id: string;
@@ -164,14 +165,14 @@ export default function Budget() {
 
             <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-                    <h2 className="text-3xl md:text-4xl font-black tracking-tight">Budget Tracker</h2>
-                    <button
+                    <h2 className="text-3xl md:text-4xl font-black tracking-tight font-serif font-normal tracking-[-0.02em]">Budget Tracker</h2>
+                    <LightBeamButton
                         onClick={() => setIsModalOpen(true)}
                         className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold uppercase tracking-widest transition-all shadow-lg shadow-blue-600/30 active:scale-95"
                     >
                         <Plus size={18} />
                         Add Entry
-                    </button>
+                    </LightBeamButton>
                 </div>
 
                 {/* Summary Cards */}
@@ -207,14 +208,14 @@ export default function Budget() {
                                 const isIncome = t.type === 'income';
 
                                 return (
-                                    <div key={t.id} className="flex items-center justify-between p-4 md:p-5 bg-[#141414] border border-white/5 rounded-2xl hover:border-white/10 transition-all group">
+                                    <div key={t.id} className="flex items-center justify-between p-4 md:p-5 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-2xl hover:border-white/10 transition-all group">
                                         <div className="flex items-center gap-4">
                                             <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center ${isIncome ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
                                                 <Icon size={18} />
                                             </div>
                                             <div className="min-w-0">
                                                 <h4 className="font-bold text-sm md:text-base text-white truncate">{t.note || t.category}</h4>
-                                                <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider truncate">{t.category} • {t.entry_date}</p>
+                                                <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider truncate tracking-widest font-mono">{t.category} • {t.entry_date}</p>
                                             </div>
                                         </div>
                                         <div className={`text-base md:text-lg font-black ${isIncome ? 'text-emerald-500' : 'text-red-500'} shrink-0 ml-2`}>
@@ -224,7 +225,7 @@ export default function Budget() {
                                 );
                             })}
                             {recentTransactions.length === 0 && (
-                                <div className="p-8 text-center text-gray-500 bg-[#141414] border border-white/5 rounded-2xl">
+                                <div className="p-8 text-center text-gray-500 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-2xl">
                                     No entries found.
                                 </div>
                             )}
@@ -232,7 +233,7 @@ export default function Budget() {
                     </div>
 
                     {/* Spending Chart */}
-                    <div className="bg-[#141414] p-6 md:p-8 rounded-3xl border border-white/5 flex flex-col items-center justify-center">
+                    <div className="bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 p-6 md:p-8 rounded-3xl border border-white/5 flex flex-col items-center justify-center">
                         <h3 className="text-lg md:text-xl font-bold mb-8 w-full text-left">Spending by Category</h3>
                         <div className="w-full h-[250px] md:h-[300px]">
                             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
@@ -286,7 +287,7 @@ export default function Budget() {
                         </button>
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Amount (₹)</label>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Amount (₹)</label>
                         <input
                             type="number"
                             placeholder="0.00"
@@ -295,26 +296,26 @@ export default function Budget() {
                             required
                             min="0.01"
                             step="0.01"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all text-2xl font-black"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all text-2xl font-black font-serif font-normal tracking-[-0.02em]"
                         />
                     </div>
                     {type === 'Expense' && (
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Category</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Category</label>
                             <select
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value)}
-                                className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all [color-scheme:dark]"
+                                className="w-full bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all [color-scheme:dark]"
                             >
-                                <option value="Food">Food</option>
-                                <option value="Transport">Transport</option>
-                                <option value="Shopping">Shopping</option>
-                                <option value="Other">Other</option>
+                                <option value="Food" className="bg-[#141414] text-white">Food</option>
+                                <option value="Transport" className="bg-[#141414] text-white">Transport</option>
+                                <option value="Shopping" className="bg-[#141414] text-white">Shopping</option>
+                                <option value="Other" className="bg-[#141414] text-white">Other</option>
                             </select>
                         </div>
                     )}
                     <div>
-                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Note / Description</label>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Note / Description</label>
                         <input
                             type="text"
                             placeholder="What was this for?"
@@ -325,7 +326,7 @@ export default function Budget() {
                         />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Date</label>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Date</label>
                         <input
                             type="date"
                             value={date}

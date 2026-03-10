@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { CheckCircle2, User, Lock, Mail } from 'lucide-react';
+import LightBeamButton from '../components/LightBeamButton';
 import Spline from '@splinetool/react-spline';
 import { supabase } from '../lib/supabase';
 
@@ -48,7 +49,7 @@ export default function Register() {
     };
 
     return (
-        <div className="relative w-full min-h-screen md:h-screen bg-black overflow-x-hidden md:overflow-hidden font-sans flex flex-col md:flex-row items-center justify-start md:justify-end md:px-24">
+        <div className="relative w-full min-h-screen md:h-screen bg-[#030303] overflow-x-hidden md:overflow-hidden font-sans flex flex-col md:flex-row items-center justify-start md:justify-end md:px-24">
             <div className="relative md:absolute w-full h-[100svh] md:h-auto md:inset-0 z-0 flex-shrink-0 scale-125 md:scale-110 md:translate-x-[-20%] opacity-100">
                 <Spline scene="https://prod.spline.design/A9DxtsyVZmcjfxXg/scene.splinecode" />
             </div>
@@ -62,13 +63,13 @@ export default function Register() {
                 transition={{ duration: 0.8, ease: "easeOut" }}
                 className="relative z-10 w-full max-w-md px-4 pb-24 md:pb-0"
             >
-                <div className="bg-black/40 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl overflow-hidden">
+                <div className="bg-[#030303]/40 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl overflow-hidden">
 
                     <div className="flex flex-col items-center mb-10">
                         <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-blue-600/40 rotate-3">
                             <CheckCircle2 className="text-white w-9 h-9" />
                         </div>
-                        <h2 className="text-4xl font-bold text-white mb-2 tracking-tight">Create Account</h2>
+                        <h2 className="text-4xl font-serif font-normal tracking-[-0.02em] text-white mb-2 tracking-tight">Create Account</h2>
                         <p className="text-gray-400 text-center text-sm">Join the workspace instantly.</p>
                     </div>
 
@@ -118,13 +119,14 @@ export default function Register() {
 
                         </div>
 
-                        <button
+                        <LightBeamButton
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-blue-600/30 text-sm uppercase tracking-widest mt-6"
+                            className="w-full py-4 text-sm uppercase tracking-widest mt-6"
+                            gradientColors={["#3b82f6", "#06b6d4", "#3b82f6"]}
                         >
                             {loading ? "Signing Up..." : "Sign Up"}
-                        </button>
+                        </LightBeamButton>
                     </form>
 
                     <div className="mt-10 pt-8 border-t border-white/5 text-center">

@@ -4,6 +4,7 @@ import { Plus, Bell, Sparkles } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
 import { supabase } from '../lib/supabase';
+import LightBeamButton from '../components/LightBeamButton';
 
 interface Reminder {
   id: string;
@@ -184,26 +185,26 @@ export default function Reminders() {
 
       <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight">Reminders</h2>
-          <button
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight font-serif font-normal tracking-[-0.02em]">Reminders</h2>
+          <LightBeamButton
             onClick={() => setIsModalOpen(true)}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold uppercase tracking-widest transition-all shadow-lg shadow-blue-600/30 active:scale-95"
           >
             <Plus size={18} />
             Add Reminder
-          </button>
+          </LightBeamButton>
         </div>
 
         {/* Today Section */}
         <div className="mb-12">
-          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Today</h3>
+          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6 tracking-widest font-mono">Today</h3>
           <div className="space-y-4">
             {todayReminders.length > 0 ? (
               todayReminders.map((reminder) => (
                 <motion.div
                   layout
                   key={reminder.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-5 md:p-6 bg-[#141414] border border-white/5 rounded-3xl hover:border-white/10 transition-all group gap-6"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-5 md:p-6 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-3xl hover:border-white/10 transition-all group gap-6"
                 >
                   <div className="flex items-center gap-4 md:gap-6">
                     <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-500 shadow-[0_0_20px_rgba(37,99,235,0.1)] shrink-0">
@@ -228,7 +229,7 @@ export default function Reminders() {
                 </motion.div>
               ))
             ) : (
-              <div className="text-center py-12 bg-[#141414] rounded-3xl border border-dashed border-white/10">
+              <div className="text-center py-12 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 rounded-3xl border border-dashed border-white/10">
                 <p className="text-gray-500 font-medium px-6">Nothing here yet. Click + to add your first one.</p>
               </div>
             )}
@@ -237,14 +238,14 @@ export default function Reminders() {
 
         {/* Upcoming Section */}
         <div className="mb-12">
-          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Upcoming</h3>
+          <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6 tracking-widest font-mono">Upcoming</h3>
           <div className="space-y-4">
             {upcomingReminders.length > 0 ? (
               upcomingReminders.map((reminder) => (
                 <motion.div
                   layout
                   key={reminder.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-5 md:p-6 bg-[#141414] border border-white/5 rounded-3xl hover:border-white/10 transition-all group gap-6"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-5 md:p-6 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-3xl hover:border-white/10 transition-all group gap-6"
                 >
                   <div className="flex items-center gap-4 md:gap-6">
                     <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-purple-600/10 flex items-center justify-center text-purple-500 shadow-[0_0_20px_rgba(124,58,237,0.1)] shrink-0">
@@ -269,7 +270,7 @@ export default function Reminders() {
                 </motion.div>
               ))
             ) : (
-              <div className="text-center py-12 bg-[#141414] rounded-3xl border border-dashed border-white/10">
+              <div className="text-center py-12 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 rounded-3xl border border-dashed border-white/10">
                 <p className="text-gray-500 font-medium px-6">Nothing here yet. Click + to add your first one.</p>
               </div>
             )}
@@ -306,7 +307,7 @@ export default function Reminders() {
       >
         <form className="space-y-5" onSubmit={handleAddReminder}>
           <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Reminder Title</label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Reminder Title</label>
             <input
               type="text"
               placeholder="What should we remind you about?"
@@ -318,7 +319,7 @@ export default function Reminders() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Date</label>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Date</label>
               <input
                 type="date"
                 value={newDate}
@@ -328,7 +329,7 @@ export default function Reminders() {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Time</label>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Time</label>
               <input
                 type="time"
                 value={newTime}
@@ -339,16 +340,16 @@ export default function Reminders() {
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Link to Task (Optional)</label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Link to Task (Optional)</label>
             <select
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none [color-scheme:dark]"
             >
-              <option value="">None</option>
-              <option value="Design system update">Design system update</option>
-              <option value="Review budget spreadsheet">Review budget spreadsheet</option>
-              <option value="Buy groceries">Buy groceries</option>
+              <option value="" className="bg-[#141414] text-white">None</option>
+              <option value="Design system update" className="bg-[#141414] text-white">Design system update</option>
+              <option value="Review budget spreadsheet" className="bg-[#141414] text-white">Review budget spreadsheet</option>
+              <option value="Buy groceries" className="bg-[#141414] text-white">Buy groceries</option>
             </select>
           </div>
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">

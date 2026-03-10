@@ -9,6 +9,7 @@ import {
 import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
 import { supabase } from '../lib/supabase';
+import LightBeamButton from '../components/LightBeamButton';
 
 interface UserStats {
   totalTasks: number;
@@ -332,7 +333,7 @@ export default function Profile() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="relative"
             >
-              <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center text-5xl md:text-6xl font-black text-white shadow-2xl shadow-blue-600/30 ring-4 ring-white/10">
+              <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center text-5xl md:text-6xl font-black text-white shadow-2xl shadow-blue-600/30 ring-4 ring-white/10 font-serif font-normal tracking-[-0.02em]">
                 {initials}
               </div>
               <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full border-4 border-[#020817] flex items-center justify-center">
@@ -351,34 +352,34 @@ export default function Profile() {
                     onKeyDown={(e) => { if (e.key === 'Enter') handleChangeName(); if (e.key === 'Escape') setEditingName(false); }}
                     autoFocus
                     placeholder="Enter your name"
-                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-2xl md:text-3xl font-black text-white focus:outline-none focus:border-blue-500 transition-all w-full max-w-xs"
+                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-2xl md:text-3xl font-black text-white focus:outline-none focus:border-blue-500 transition-all w-full max-w-xs font-serif font-normal tracking-[-0.02em]"
                   />
-                  <button
+                  <LightBeamButton
                     onClick={handleChangeName}
                     disabled={savingName || !newName.trim()}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
                   >
                     {savingName ? '...' : 'Save'}
-                  </button>
-                  <button
+                  </LightBeamButton>
+                  <LightBeamButton
                     onClick={() => setEditingName(false)}
                     className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold transition-all"
                   >
                     <X size={16} />
-                  </button>
+                  </LightBeamButton>
                 </div>
               ) : (
                 <div className="flex items-center gap-3 mb-2 justify-center md:justify-start">
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight">
+                  <h1 className="text-3xl md:text-4xl font-black tracking-tight font-serif font-normal tracking-[-0.02em]">
                     {displayName || email.split('@')[0]}
                   </h1>
-                  <button
+                  <LightBeamButton
                     onClick={() => { setNewName(displayName || email.split('@')[0]); setEditingName(true); }}
                     className="p-2 rounded-lg hover:bg-white/10 text-gray-500 hover:text-white transition-all"
                     title="Edit name"
                   >
                     <Pencil size={16} />
-                  </button>
+                  </LightBeamButton>
                 </div>
               )}
               <div className="flex items-center justify-center md:justify-start gap-2 text-gray-400 mb-4">
@@ -427,7 +428,7 @@ export default function Profile() {
                 </defs>
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-black text-white">{completionRate}%</span>
+                <span className="text-3xl font-black text-white font-serif font-normal tracking-[-0.02em]">{completionRate}%</span>
                 <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Complete</span>
               </div>
             </div>
@@ -453,11 +454,11 @@ export default function Profile() {
                   stat.color === 'blue' ? 'bg-blue-500/10 text-blue-400' :
                   stat.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-400' :
                   stat.color === 'rose' ? 'bg-rose-500/10 text-rose-400' :
-                  'bg-amber-500/10 text-amber-400'
+                  'bg-[#030303]mber-500/10 text-amber-400'
                 }`}>
                   <stat.icon size={18} />
                 </div>
-                <p className="text-2xl font-black text-white mb-1">{stat.value}</p>
+                <p className="text-2xl font-black text-white mb-1 font-serif font-normal tracking-[-0.02em]">{stat.value}</p>
                 <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{stat.label}</p>
               </motion.div>
             ))}
@@ -479,7 +480,7 @@ export default function Profile() {
             { icon: Wallet, label: 'Budget Overview', desc: `${stats.totalBudgetEntries} entries recorded`, onClick: () => navigate('/budget') },
             { icon: FileText, label: 'My Documents', desc: `${stats.totalDocuments} files uploaded`, onClick: () => navigate('/files') },
           ].map((item, i) => (
-            <button
+            <LightBeamButton
               key={item.label}
               onClick={item.onClick}
               className={`w-full flex items-center gap-4 p-5 hover:bg-white/[0.02] transition-all text-left ${
@@ -494,7 +495,7 @@ export default function Profile() {
                 <p className="text-xs text-gray-500">{item.desc}</p>
               </div>
               <ChevronRight size={16} className="text-gray-600" />
-            </button>
+            </LightBeamButton>
           ))}
         </motion.div>
 
@@ -504,14 +505,14 @@ export default function Profile() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
         >
-          <button
+          <LightBeamButton
             onClick={handleLogout}
             disabled={loggingOut}
             className="w-full flex items-center justify-center gap-3 p-5 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/20 rounded-2xl transition-all text-red-500 font-bold text-sm uppercase tracking-widest"
           >
             <LogOut size={18} />
             {loggingOut ? 'Signing out...' : 'Sign Out'}
-          </button>
+          </LightBeamButton>
         </motion.div>
 
       </main>
@@ -525,7 +526,7 @@ export default function Profile() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-start justify-center p-4 overflow-y-auto"
           >
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowSecurity(false)} />
+            <div className="absolute inset-0 bg-[#030303]/70 backdrop-blur-sm" onClick={() => setShowSecurity(false)} />
 
             <motion.div
               initial={{ opacity: 0, y: 40, scale: 0.97 }}
@@ -544,12 +545,12 @@ export default function Profile() {
                     <p className="text-xs text-gray-500">Manage your account protection</p>
                   </div>
                 </div>
-                <button
+                <LightBeamButton
                   onClick={() => setShowSecurity(false)}
                   className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white"
                 >
                   <X size={20} />
-                </button>
+                </LightBeamButton>
               </div>
 
               {/* Toast */}
@@ -609,9 +610,9 @@ export default function Profile() {
                         required
                         className="w-full pl-11 pr-11 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all text-sm"
                       />
-                      <button type="button" onClick={() => setShowCurrentPw(!showCurrentPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                      <LightBeamButton type="button" onClick={() => setShowCurrentPw(!showCurrentPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
                         {showCurrentPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
+                      </LightBeamButton>
                     </div>
 
                     <div className="relative">
@@ -625,9 +626,9 @@ export default function Profile() {
                         minLength={6}
                         className="w-full pl-11 pr-11 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all text-sm"
                       />
-                      <button type="button" onClick={() => setShowNewPw(!showNewPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                      <LightBeamButton type="button" onClick={() => setShowNewPw(!showNewPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
                         {showNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
+                      </LightBeamButton>
                     </div>
 
                     <div className="relative">
@@ -641,22 +642,22 @@ export default function Profile() {
                         minLength={6}
                         className="w-full pl-11 pr-11 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all text-sm"
                       />
-                      <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                      <LightBeamButton type="button" onClick={() => setShowConfirmPw(!showConfirmPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
                         {showConfirmPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
+                      </LightBeamButton>
                     </div>
 
                     {newPassword && confirmPassword && newPassword !== confirmPassword && (
                       <p className="text-red-400 text-xs font-semibold">Passwords do not match</p>
                     )}
 
-                    <button
+                    <LightBeamButton
                       type="submit"
                       disabled={changingPassword || !currentPassword || !newPassword || newPassword !== confirmPassword}
                       className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all text-xs uppercase tracking-widest"
                     >
                       {changingPassword ? 'Updating...' : 'Update Password'}
-                    </button>
+                    </LightBeamButton>
                   </form>
                 </div>
 
@@ -671,13 +672,13 @@ export default function Profile() {
                   </p>
 
                   {!showDeleteConfirm ? (
-                    <button
+                    <LightBeamButton
                       onClick={() => setShowDeleteConfirm(true)}
                       className="w-full flex items-center justify-center gap-2 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/30 rounded-xl text-red-500 font-bold text-xs uppercase tracking-widest transition-all"
                     >
                       <Trash2 size={14} />
                       Delete Account
-                    </button>
+                    </LightBeamButton>
                   ) : (
                     <div className="space-y-3">
                       <p className="text-xs text-red-400 font-semibold">
@@ -691,19 +692,19 @@ export default function Profile() {
                         className="w-full px-4 py-3 bg-red-500/5 border border-red-500/20 rounded-xl text-white placeholder-red-500/40 focus:outline-none focus:border-red-500/50 transition-all text-sm"
                       />
                       <div className="flex gap-3">
-                        <button
+                        <LightBeamButton
                           onClick={handleDeleteAccount}
                           disabled={deleteText !== 'DELETE' || deleting}
                           className="flex-1 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs uppercase tracking-widest transition-all"
                         >
                           {deleting ? 'Deleting...' : 'Confirm Delete'}
-                        </button>
-                        <button
+                        </LightBeamButton>
+                        <LightBeamButton
                           onClick={() => { setShowDeleteConfirm(false); setDeleteText(''); }}
                           className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl text-xs uppercase tracking-widest transition-all"
                         >
                           Cancel
-                        </button>
+                        </LightBeamButton>
                       </div>
                     </div>
                   )}

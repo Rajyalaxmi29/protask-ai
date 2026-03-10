@@ -4,6 +4,7 @@ import { Plus, MoreVertical, CheckCircle2, Trash2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
 import { supabase } from '../lib/supabase';
+import LightBeamButton from '../components/LightBeamButton';
 
 interface Task {
   id: string;
@@ -169,14 +170,14 @@ export default function Tasks() {
 
       <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight">My Tasks</h2>
-          <button
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight font-serif font-normal tracking-[-0.02em]">My Tasks</h2>
+          <LightBeamButton
             onClick={() => setIsModalOpen(true)}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold uppercase tracking-widest transition-all shadow-lg shadow-blue-600/30 active:scale-95"
           >
             <Plus size={18} />
             Add Task
-          </button>
+          </LightBeamButton>
         </div>
 
         {/* Filter Tabs - Scrollable on mobile */}
@@ -196,7 +197,7 @@ export default function Tasks() {
         {/* Task List */}
         <div className="space-y-4 mb-12">
           {loading ? (
-            <div className="text-center py-20 bg-[#141414] rounded-3xl border border-dashed border-white/10">
+            <div className="text-center py-20 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 rounded-3xl border border-dashed border-white/10">
               <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
               <p className="text-gray-500 font-medium px-6">Loading tasks...</p>
             </div>
@@ -205,7 +206,7 @@ export default function Tasks() {
               <motion.div
                 layout
                 key={task.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#141414] border border-white/5 rounded-2xl hover:border-white/10 transition-all group gap-4"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-2xl hover:border-white/10 transition-all group gap-4"
               >
                 <div className="flex items-center gap-5">
                   <button
@@ -219,7 +220,7 @@ export default function Tasks() {
                     <h4 className={`font-bold text-base md:text-lg transition-all truncate ${task.completed ? 'text-gray-600 line-through' : 'text-white'}`}>
                       {task.title}
                     </h4>
-                    {task.due_date && <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">{new Date(task.due_date).toLocaleDateString()}</p>}
+                    {task.due_date && <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider tracking-widest font-mono">{new Date(task.due_date).toLocaleDateString()}</p>}
                   </div>
                 </div>
 
@@ -240,14 +241,14 @@ export default function Tasks() {
               </motion.div>
             ))
           ) : (
-            <div className="text-center py-20 bg-[#141414] rounded-3xl border border-dashed border-white/10">
+            <div className="text-center py-20 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 rounded-3xl border border-dashed border-white/10">
               <p className="text-gray-500 font-medium px-6">Nothing here yet. Click + to add your first one.</p>
             </div>
           )}
         </div>
 
         {/* Progress Bar */}
-        <div className="bg-[#141414] p-6 rounded-3xl border border-white/5">
+        <div className="bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 p-6 rounded-3xl border border-white/5">
           <div className="flex justify-between items-center mb-4">
             <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
               {completedCount} of {tasks.length} tasks completed
@@ -272,7 +273,7 @@ export default function Tasks() {
       >
         <form className="space-y-5" onSubmit={handleAddTask}>
           <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Task Title</label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Task Title</label>
             <input
               type="text"
               placeholder="What needs to be done?"
@@ -283,7 +284,7 @@ export default function Tasks() {
             />
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Description</label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Description</label>
             <textarea
               placeholder="Add more details..."
               rows={3}
@@ -294,7 +295,7 @@ export default function Tasks() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Due Date</label>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Due Date</label>
               <input
                 type="date"
                 value={newTaskDate}
@@ -303,28 +304,28 @@ export default function Tasks() {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Priority</label>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Priority</label>
               <select
                 value={newTaskPriority}
                 onChange={(e) => setNewTaskPriority(e.target.value as any)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none [color-scheme:dark]"
               >
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
+                <option value="High" className="bg-[#141414] text-white">High</option>
+                <option value="Medium" className="bg-[#141414] text-white">Medium</option>
+                <option value="Low" className="bg-[#141414] text-white">Low</option>
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Label</label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Label</label>
             <select
               value={newTaskLabel}
               onChange={(e) => setNewTaskLabel(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none [color-scheme:dark]"
             >
-              <option value="Work">Work</option>
-              <option value="Personal">Personal</option>
-              <option value="Finance">Finance</option>
+              <option value="Work" className="bg-[#141414] text-white">Work</option>
+              <option value="Personal" className="bg-[#141414] text-white">Personal</option>
+              <option value="Finance" className="bg-[#141414] text-white">Finance</option>
             </select>
           </div>
           <div className="flex gap-3 pt-4">

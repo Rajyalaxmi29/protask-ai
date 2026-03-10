@@ -12,6 +12,7 @@ import Navbar from '../components/Navbar';
 import Modal from '../components/Modal';
 import { useCustomLabels } from '../lib/useCustomLabels';
 import { supabase } from '../lib/supabase';
+import LightBeamButton from '../components/LightBeamButton';
 
 const StatCard = ({ title, value, subtitle, to, color = "blue", index, scene, imageUrl }: { title: string, value: string, subtitle: string, to: string, color?: "blue" | "emerald" | "amber" | "rose", index: number, scene?: string, imageUrl?: string }) => {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ const StatCard = ({ title, value, subtitle, to, color = "blue", index, scene, im
   const btnColors = {
     blue: "hover:bg-blue-600",
     emerald: "hover:bg-emerald-600",
-    amber: "hover:bg-amber-600",
+    amber: "hover:bg-[#030303]mber-600",
     rose: "hover:bg-rose-600"
   };
 
@@ -35,13 +36,13 @@ const StatCard = ({ title, value, subtitle, to, color = "blue", index, scene, im
     <motion.div
       whileHover={{ y: -8, scale: 1.01 }}
       onClick={() => navigate(to)}
-      className={`bg-[#141414] border border-white/5 rounded-3xl overflow-hidden relative group md:h-72 flex flex-col md:flex-row transition-all cursor-pointer ${glowColors[color]} ${!isEven ? 'md:flex-row-reverse' : ''}`}
+      className={`bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-3xl overflow-hidden relative group md:h-72 flex flex-col md:flex-row transition-all cursor-pointer ${glowColors[color]} ${!isEven ? 'md:flex-row-reverse' : ''}`}
     >
       {/* Content Side */}
-      <div className="relative z-10 p-8 md:p-10 w-full md:w-1/2 flex flex-col justify-center backdrop-blur-sm bg-white/[0.02]">
-        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3">{title}</p>
-        <h3 className="text-3xl md:text-4xl font-bold text-white mb-2">{value}</h3>
-        <p className="text-sm text-gray-400 mb-6 leading-relaxed">{subtitle}</p>
+      <div className="relative z-10 p-6 md:p-10 w-full md:w-1/2 flex flex-col justify-center backdrop-blur-sm bg-white/[0.02]">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3 tracking-widest font-mono">{title}</p>
+        <h3 className="text-2xl md:text-4xl font-serif font-normal tracking-[-0.02em] text-white mb-2">{value}</h3>
+        <p className="text-sm text-gray-400 mb-4 md:mb-6 leading-relaxed">{subtitle}</p>
 
         <div>
           <div
@@ -54,7 +55,7 @@ const StatCard = ({ title, value, subtitle, to, color = "blue", index, scene, im
       </div>
 
       {/* Spline/Image Side - Balanced and Clear */}
-      <div className="w-full md:w-1/2 h-48 md:h-full relative bg-[#050505] overflow-hidden border-t md:border-t-0 md:border-x border-white/5">
+      <div className="w-full md:w-1/2 h-40 md:h-full relative bg-[#050505] overflow-hidden border-t md:border-t-0 md:border-x border-white/5">
         <div className="absolute inset-0 flex items-center justify-center p-8">
           {imageUrl ? (
             <img
@@ -80,7 +81,7 @@ const StatCard = ({ title, value, subtitle, to, color = "blue", index, scene, im
 };
 
 const TaskItem = ({ title, date, priority, completed = false }: { title: string, date: string, priority: string, completed?: boolean }) => (
-  <div className="flex items-center justify-between p-4 bg-[#1a1a1a] border border-white/5 rounded-xl hover:border-white/10 transition-all group">
+  <div className="flex items-center justify-between p-4 bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 border border-white/5 rounded-xl hover:border-white/10 transition-all group">
     <div className="flex items-center gap-4">
       <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer transition-colors ${completed ? 'bg-blue-600 border-blue-600' : 'border-gray-600 hover:border-blue-600'}`}>
         {completed && <CheckCircle2 size={14} className="text-white" />}
@@ -97,9 +98,9 @@ const TaskItem = ({ title, date, priority, completed = false }: { title: string,
         }`}>
         {priority}
       </span>
-      <button className="text-gray-600 hover:text-white transition-colors">
+      <LightBeamButton className="text-gray-600 hover:text-white transition-colors">
         <MoreVertical size={18} />
-      </button>
+      </LightBeamButton>
     </div>
   </div>
 );
@@ -113,6 +114,7 @@ export default function Dashboard() {
   const [upcomingRemindersCount, setUpcomingRemindersCount] = useState<string>("0");
   const [documentsCount, setDocumentsCount] = useState<string>("0");
   const [userName, setUserName] = useState<string>('');
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -132,7 +134,7 @@ export default function Dashboard() {
         .from('profiles')
         .select('full_name')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       setUserName(
         profile?.full_name ||
@@ -269,29 +271,29 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans flex flex-col">
+    <div className="min-h-screen bg-[#030303] text-white font-sans flex flex-col">
       <Navbar />
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
         {/* Dashboard Content */}
-        <div className="p-8 max-w-7xl mx-auto w-full">
-          <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
+          <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
             <div>
-              <h2 className="text-3xl font-bold mb-1">Good morning{userName ? `, ${userName}` : ''}</h2>
-              <p className="text-gray-500">Here's what's happening with your projects today.</p>
+              <h2 className="text-2xl md:text-3xl font-serif font-normal tracking-[-0.02em] mb-1">Good morning{userName ? `, ${userName}` : ''}</h2>
+              <p className="text-gray-500 text-sm md:text-base">Here's what's happening with your projects today.</p>
             </div>
-            <button
+            <LightBeamButton
               onClick={() => setIsLabelModalOpen(true)}
-              className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-full text-sm font-bold transition-all border border-white/10 flex items-center gap-2"
+              className="self-start md:self-auto px-5 py-2.5 md:px-6 md:py-3 bg-white/5 hover:bg-white/10 text-white rounded-full text-sm font-bold transition-all border border-white/10 flex items-center gap-2"
             >
-              <Plus size={18} />
+              <Plus size={16} />
               Create Label
-            </button>
+            </LightBeamButton>
           </div>
 
-          {/* Stats Grid - Staggered Alternating Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-16 mb-20">
+          {/* Stats Grid — single column mobile, staggered desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-x-12 md:gap-y-16 mb-12 md:mb-20">
             <div className="lg:col-start-1">
               <StatCard
                 index={0}
@@ -348,7 +350,7 @@ export default function Dashboard() {
       >
         <form className="space-y-5" onSubmit={handleCreateLabel}>
           <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Label Name</label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 tracking-widest font-mono">Label Name</label>
             <input
               type="text"
               placeholder="e.g. Side Project"
@@ -360,19 +362,19 @@ export default function Dashboard() {
           </div>
 
           <div className="flex gap-3 pt-4">
-            <button
+            <LightBeamButton
               type="submit"
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/20 uppercase text-xs tracking-widest"
             >
               Create
-            </button>
-            <button
+            </LightBeamButton>
+            <LightBeamButton
               type="button"
               onClick={() => setIsLabelModalOpen(false)}
               className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-xl transition-all uppercase text-xs tracking-widest"
             >
               Cancel
-            </button>
+            </LightBeamButton>
           </div>
         </form>
       </Modal>
