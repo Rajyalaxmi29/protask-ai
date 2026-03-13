@@ -31,10 +31,15 @@ export function TubesBackground({
 
             try {
                 // The CDN build bundles its own Three.js which conflicts with our npm 'three'
-                // We temporarily remove the global THREE object before import to suppress the warning
+                // We temporarily remove the global THREE objects before import to suppress the warning
                 const globalThree = (window as any).THREE;
+                const globalThreeDunder = (window as any).__THREE__;
+
                 if (globalThree) {
                     delete (window as any).THREE;
+                }
+                if (globalThreeDunder) {
+                    delete (window as any).__THREE__;
                 }
 
                 // We use the specific build from the CDN as it contains the exact effect requested
@@ -46,6 +51,9 @@ export function TubesBackground({
                 // Restore global THREE if we had one
                 if (globalThree) {
                     (window as any).THREE = globalThree;
+                }
+                if (globalThreeDunder) {
+                    (window as any).__THREE__ = globalThreeDunder;
                 }
 
                 if (!mounted) return;
@@ -104,7 +112,7 @@ export function TubesBackground({
             <canvas
                 ref={canvasRef}
                 className="absolute inset-0 w-full h-full block"
-                style={{ touchAction: 'none' }}
+                style={{ touchAction: 'pan-y' }}
             />
 
             {/* Content Overlay */}

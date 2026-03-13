@@ -4,17 +4,18 @@ import LightBeamButton from '../components/LightBeamButton';
 import { MorphingText } from '../components/MorphingText';
 import CardSwap, { Card } from '../components/CardSwap';
 import TubesBackground from '../components/TubesBackground';
+import PenScrollSequence from '../components/PenScrollSequence';
 import { motion } from 'motion/react';
 import { Play } from 'lucide-react';
 
 export default function Home() {
   return (
-    <div className="relative w-full min-h-screen bg-[#080808] overflow-x-hidden font-sans text-[#E2E8F0]">
+    <div className="relative w-full min-h-screen bg-[#080808] overflow-x-clip font-sans text-[#E2E8F0]">
       {/* 
         Hero Section: 
         Keeps the interactive tubes background locked to the viewport height 
       */}
-      <div className="relative w-full h-[100svh] flex flex-col items-center justify-center">
+      <div className="relative w-full h-[100svh] flex flex-col items-center justify-center" style={{ touchAction: 'pan-y' }}>
         {/* Interactive Tubes Background */}
         <div className="absolute inset-0 z-0 pointer-events-auto">
           <TubesBackground />
@@ -56,25 +57,14 @@ export default function Home() {
           </motion.div>
         </div>
 
-        {/* Bottom Action - Get Started */}
-        <div className="absolute bottom-12 md:bottom-16 left-0 right-0 z-10 flex justify-center pointer-events-none">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: "easeOut", delay: 0.6 }}
-            className="text-center pointer-events-auto w-full px-6"
-          >
-            <LightBeamButton
-              as={Link}
-              to="/login"
-              className="w-full max-w-xs md:w-auto px-12 py-4 text-xs font-mono font-bold tracking-[0.2em] uppercase transition-all hover:-translate-y-1 hover:shadow-[0_0_25px_rgba(139,92,246,0.4)] text-white rounded-xl"
-              gradientColors={["#8B5CF6", "#06B6D4", "#8B5CF6"]}
-            >
-              Get Started
-            </LightBeamButton>
-          </motion.div>
-        </div>
+
       </div>
+
+      {/* 
+        3D Scroll Pen Animation Sequence
+        The pen writes "Tasks" and "Budget" as you scroll down
+      */}
+      <PenScrollSequence />
 
       {/* 
         Showcase Section:
@@ -181,6 +171,25 @@ export default function Home() {
 
           </CardSwap>
         </div>
+
+        {/* Get Started CTA - below cards */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="mt-20 mb-8 flex flex-col items-center gap-4 px-6 w-full"
+        >
+          <p className="text-xs font-mono tracking-[0.3em] uppercase text-[#E2E8F0]/50">Ready to take control?</p>
+          <LightBeamButton
+            as={Link}
+            to="/login"
+            className="w-full max-w-xs px-10 py-4 text-xs font-mono font-bold tracking-[0.2em] uppercase transition-all active:scale-95 hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(139,92,246,0.5)] text-white rounded-xl"
+            gradientColors={["#8B5CF6", "#06B6D4", "#8B5CF6"]}
+          >
+            Get Started
+          </LightBeamButton>
+        </motion.div>
       </div>
     </div>
   );
