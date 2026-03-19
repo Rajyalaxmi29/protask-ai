@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -12,10 +12,17 @@ import LabelDetail from './pages/LabelDetail';
 import Profile from './pages/Profile';
 import Feedback from './pages/Feedback';
 import AdminFeedback from './pages/AdminFeedback';
+import AIChatbot from './components/AIChatbot';
 
-export default function App() {
+// Hide chatbot on public pages
+const PUBLIC_PATHS = ['/', '/login', '/register'];
+
+function AppContent() {
+  const location = useLocation();
+  const showChatbot = !PUBLIC_PATHS.includes(location.pathname);
+
   return (
-    <Router>
+    <>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
@@ -31,6 +38,15 @@ export default function App() {
         <Route path="/labels/:id" element={<LabelDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      {showChatbot && <AIChatbot />}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }
