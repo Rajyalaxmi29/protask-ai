@@ -432,7 +432,7 @@ export default function AIChatbot() {
             id: Date.now().toString() + '-err',
             role: 'assistant',
             content:
-              '⚠️ Sorry, I couldn\'t get a response. Please check that your Hugging Face API token is set correctly in the `.env` file (`VITE_HF_API_TOKEN`).',
+              '⚠️ Sorry, I couldn\'t get a response right now. The AI service may be temporarily unavailable. Please try again in a moment.',
           },
         ]);
       } finally {
