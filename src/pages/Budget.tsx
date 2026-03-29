@@ -235,8 +235,8 @@ export default function Budget() {
                     {/* Spending Chart */}
                     <div className="bg-[#0a0a0a]/70 backdrop-blur-xl border-white/10 p-6 md:p-8 rounded-3xl border border-white/5 flex flex-col items-center justify-center">
                         <h3 className="text-lg md:text-xl font-bold mb-8 w-full text-left">Spending by Category</h3>
-                        <div className="w-full h-[250px] md:h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                        <div className="w-full h-[250px] md:h-[300px] relative">
+                            <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
                                 <PieChart>
                                     <Pie
                                         data={chartData}

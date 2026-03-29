@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, User, Menu, X, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useCustomLabels } from '../lib/useCustomLabels';
 import { supabase } from '../lib/supabase';
 
 const ADMIN_EMAIL = 'rajyalaxmikunchala06@gmail.com';
@@ -17,7 +16,6 @@ export default function Navbar() {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const { labels } = useCustomLabels();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -73,18 +71,6 @@ export default function Navbar() {
                 }`}
             >
               {item.label}
-            </Link>
-          ))}
-          {labels.map(label => (
-            <Link
-              key={label.id}
-              to={`/labels/${label.id}`}
-              className={`px-4 py-2 rounded-full text-sm font-semibold tracking-wide transition-all ${isActive(`/labels/${label.id}`)
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-            >
-              {label.name}
             </Link>
           ))}
 
@@ -161,29 +147,6 @@ export default function Navbar() {
                   </motion.div>
                 ))}
 
-                {/* Custom labels */}
-                {labels.length > 0 && (
-                  <div className="h-px bg-white/5 mx-2 my-2" />
-                )}
-                {labels.map((label, i) => (
-                  <motion.div
-                    key={label.id}
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: (navItems.length + i) * 0.04, duration: 0.2 }}
-                  >
-                    <Link
-                      to={`/labels/${label.id}`}
-                      className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl text-base font-semibold transition-all ${isActive(`/labels/${label.id}`)
-                          ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
-                          : 'text-gray-300 hover:text-white hover:bg-white/5'
-                        }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive(`/labels/${label.id}`) ? 'bg-blue-400' : 'bg-gray-600'}`} />
-                      {label.name}
-                    </Link>
-                  </motion.div>
-                ))}
               </nav>
 
               {/* Profile section at the bottom */}

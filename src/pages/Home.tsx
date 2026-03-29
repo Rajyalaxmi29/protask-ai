@@ -1,196 +1,525 @@
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Zap, BarChart2, Bell, Shield, ArrowRight } from 'lucide-react';
 import LightBeamButton from '../components/LightBeamButton';
-import { MorphingText } from '../components/MorphingText';
-import CardSwap, { Card } from '../components/CardSwap';
-import TubesBackground from '../components/TubesBackground';
-import PenScrollSequence from '../components/PenScrollSequence';
-import { motion } from 'motion/react';
-import { Play } from 'lucide-react';
+import StickyStackCards from '../components/StickyStackCards';
+import { motion, useScroll, useTransform, useSpring, AnimatePresence } from 'motion/react';
+import logoSrc from '../assets/logo.png';
 
-export default function Home() {
+// ─── Hero Navbar ──────────────────────────────────────────────────
+function HeroNavbar() {
   return (
-    <div className="relative w-full min-h-screen bg-[#080808] overflow-x-clip font-sans text-[#E2E8F0]">
-      {/* 
-        Hero Section: 
-        Keeps the interactive tubes background locked to the viewport height 
-      */}
-      <div className="relative w-full h-[100svh] flex flex-col items-center justify-center" style={{ touchAction: 'pan-y' }}>
-        {/* Interactive Tubes Background */}
-        <div className="absolute inset-0 z-0 pointer-events-auto">
-          <TubesBackground />
+    <div className="relative z-10 w-full">
+      <div className="flex items-center justify-between py-5 px-8">
+        {/* Left: Logo */}
+        <div className="flex items-center gap-2">
+          <img src={logoSrc} alt="ProTask AI" style={{ height: 32, width: 'auto' }} />
         </div>
 
-        {/* Centered Quote */}
-        <div className="absolute top-[30%] left-0 right-0 z-20 flex flex-col items-center pointer-events-none px-6 w-[92vw] mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }}
-            className="text-center w-full"
-          >
-            <div className="flex flex-col items-center justify-center md:flex-row text-[clamp(42px,8vw,120px)] font-serif italic tracking-tighter text-white leading-[0.85]">
-              <span className="mr-4">Work</span>
-              <MorphingText
-                words={["Smarter", "Faster", "Better", "Together"]}
-                className="text-[clamp(42px,8vw,120px)]"
-                interval={2500}
-              />
-            </div>
-            <p className="mt-8 text-sm md:text-lg text-[#E2E8F0] tracking-wide max-w-xl mx-auto font-sans font-light bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border border-white/5 shadow-2xl inline-block">
-              Your AI-powered workspace to plan, track, and conquer every task effortlessly.
-            </p>
-          </motion.div>
-        </div>
+        {/* Center: Nav Anchors */}
+        <nav className="hidden md:flex items-center gap-1">
+          {[
+            { label: 'Features',    id: 'features' },
+            { label: 'How It Works',id: 'howitworks' },
+            { label: 'Showcase',    id: 'showcase' },
+            { label: 'Get Started', id: 'getstarted' },
+          ].map(item => (
+            <button
+              key={item.label}
+              onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-4 py-2 text-sm rounded-full transition-all duration-200 hover:bg-white/5 cursor-pointer"
+              style={{ color: 'rgba(244,240,229,0.9)' }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-        {/* Top Branding - Monospace */}
-        <div className="absolute top-8 md:top-12 left-0 right-0 z-20 flex flex-col items-center pointer-events-none w-[92vw] mx-auto pt-8">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            className="w-full flex justify-center items-center"
-          >
-            <h1 className="text-xs md:text-sm font-mono font-medium text-white tracking-[0.2em] uppercase opacity-90">
-              ProTask AI
-            </h1>
-          </motion.div>
-        </div>
-
-
+        {/* Right: Sign Up */}
+        <Link
+          to="/register"
+          className="liquid-glass px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 hover:bg-white/10"
+          style={{ color: 'var(--foreground)' }}
+        >
+          Sign Up
+        </Link>
       </div>
 
-      {/* 
-        3D Scroll Pen Animation Sequence
-        The pen writes "Tasks" and "Budget" as you scroll down
-      */}
-      <PenScrollSequence />
+      {/* Divider */}
+      <div
+        className="w-full mt-[3px]"
+        style={{
+          height: '1px',
+          background: 'linear-gradient(to right, transparent, rgba(244,240,229,0.2), transparent)',
+        }}
+      />
+    </div>
+  );
+}
 
-      {/* 
-        Showcase Section:
-        Scroll down to reveal the perspective card swap animation
-      */}
-      <div className="relative w-full py-32 flex flex-col items-center justify-center bg-[#080808] z-10">
-        <div className="text-center mb-16 md:mb-32 px-6 w-[92vw] max-w-5xl mx-auto flex flex-col items-center">
-          <span className="text-[10px] font-mono tracking-[0.5em] text-[#E2E8F0] mb-4 uppercase">System Capabilities</span>
-          <h2 className="text-[clamp(32px,5vw,72px)] font-serif italic tracking-tighter text-white mb-6 leading-[0.9]">Inside the Framework</h2>
-          <p className="text-sm md:text-base text-[#E2E8F0] max-w-lg font-sans font-light">
-            Engineered precision. Everything you need to orchestrate your daily workflows, wrapped in a high-performance interface.
-          </p>
-        </div>
+// ─── Floating particles ────────────────────────────────────────────
+function Particles() {
+  const particles = Array.from({ length: 28 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    size: Math.random() * 3 + 1,
+    duration: Math.random() * 12 + 8,
+    delay: Math.random() * 6,
+    opacity: Math.random() * 0.4 + 0.1,
+  }));
 
-        <div className="relative w-full max-w-[500px] h-[400px] mt-12 md:mt-24">
-          <CardSwap
-            width={400}
-            height={400}
-            cardDistance={40}
-            verticalDistance={40}
-            delay={3000}
-            pauseOnHover={true}
-            skewAmount={4}
-          >
-            {/* Card 1: Task Management */}
-            <Card className="p-0 overflow-hidden group">
-              <div className="relative h-full w-full flex flex-col bg-[#050505]">
-                <div className="flex-1 overflow-hidden p-8 flex items-center justify-center">
-                  <img
-                    src="https://cdn3d.iconscout.com/3d/premium/thumb/checklist-5381347-4497557.png"
-                    alt="Task Prioritization"
-                    className="w-48 h-48 object-contain transition-transform duration-700 group-hover:scale-110 drop-shadow-[0_0_30px_rgba(59,130,246,0.3)]"
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-8 text-white z-10 border-t border-white/5 bg-black/40 backdrop-blur-md">
-                  <h3 className="text-xl font-serif mb-2 text-white">Task Prioritization</h3>
-                  <p className="text-sm text-white/50 leading-relaxed font-sans">
-                    Seamlessly organize, filter, and track dependencies with AI-driven categorizations.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Card 2: Smarter Budgeting */}
-            <Card className="p-0 overflow-hidden group">
-              <div className="relative h-full w-full flex flex-col bg-[#050505]">
-                <div className="flex-1 overflow-hidden p-8 flex items-center justify-center">
-                  <img
-                    src="https://cdn3d.iconscout.com/3d/premium/thumb/saving-money-5381348-4497558.png"
-                    alt="Smarter Budgeting"
-                    className="w-48 h-48 object-contain transition-transform duration-700 group-hover:scale-110 drop-shadow-[0_0_30px_rgba(16,185,129,0.3)]"
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-8 text-white z-10 border-t border-white/5 bg-black/40 backdrop-blur-md">
-                  <h3 className="text-xl font-serif mb-2 text-white">Financial Clarity</h3>
-                  <p className="text-sm text-white/50 leading-relaxed font-sans">
-                    Track every expense with dynamic charts and visual breakdowns to stay under your limits.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Card 3: Instant Reminders */}
-            <Card className="p-0 overflow-hidden group">
-              <div className="relative h-full w-full flex flex-col bg-[#050505]">
-                <div className="flex-1 overflow-hidden p-8 flex items-center justify-center">
-                  <img
-                    src="https://cdn3d.iconscout.com/3d/premium/thumb/calendar-5381346-4497556.png"
-                    alt="Instant Reminders"
-                    className="w-48 h-48 object-contain transition-transform duration-700 group-hover:scale-110 drop-shadow-[0_0_30px_rgba(245,158,11,0.3)]"
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-8 text-white z-10 border-t border-white/5 bg-black/40 backdrop-blur-md">
-                  <h3 className="text-xl font-serif mb-2 text-white">Smart Reminders</h3>
-                  <p className="text-sm text-white/50 leading-relaxed font-sans">
-                    Never miss a critical deadline. Centralized notifications that keep you on pulse.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Card 4: Document Vault */}
-            <Card className="p-0 overflow-hidden group">
-              <div className="relative h-full w-full flex flex-col bg-[#050505]">
-                <div className="flex-1 overflow-hidden p-8 flex items-center justify-center">
-                  <img
-                    src="https://cdn3d.iconscout.com/3d/premium/thumb/folder-5381345-4497555.png"
-                    alt="Document Vault"
-                    className="w-48 h-48 object-contain transition-transform duration-700 group-hover:scale-110 drop-shadow-[0_0_30px_rgba(236,72,153,0.3)]"
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-8 text-white z-10 border-t border-white/5 bg-black/40 backdrop-blur-md">
-                  <h3 className="text-xl font-serif mb-2 text-white">Secure Documents</h3>
-                  <p className="text-sm text-white/50 leading-relaxed font-sans">
-                    Store, manage, and retrieve your project files seamlessly directly inside ProTask.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-          </CardSwap>
-        </div>
-
-        {/* Get Started CTA - below cards */}
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
+      {particles.map(p => (
         <motion.div
+          key={p.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: p.size,
+            height: p.size,
+            background: 'rgba(139,92,246,0.7)',
+            boxShadow: `0 0 ${p.size * 4}px rgba(139,92,246,0.5)`,
+          }}
+          animate={{
+            y: [0, -60, 0],
+            x: [0, Math.random() * 30 - 15, 0],
+            opacity: [0, p.opacity, 0],
+            scale: [0.5, 1.2, 0.5],
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Animated stats section ────────────────────────────────────────
+const STATS = [
+  { value: '98%', label: 'Task Completion Rate', icon: Zap,       color: '#6366f1' },
+  { value: '3×',  label: 'Productivity Boost',   icon: BarChart2, color: '#a855f7' },
+  { value: '12k', label: 'Active Users',          icon: Bell,      color: '#f59e0b' },
+  { value: 'SOC2',label: 'Security Certified',    icon: Shield,    color: '#10b981' },
+];
+
+function StatsSection() {
+  return (
+    <section style={{ background: 'var(--background)' }} className="py-24 px-6">
+      <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6">
+        {STATS.map((stat, i) => {
+          const Icon = stat.icon;
+          return (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.5 }}
+              transition={{ duration: 0.6, delay: i * 0.12, ease: 'easeOut' }}
+              whileHover={{ scale: 1.04, y: -4 }}
+              className="liquid-glass rounded-2xl p-6 flex flex-col gap-3 cursor-default"
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: `${stat.color}22` }}
+              >
+                <Icon size={20} style={{ color: stat.color }} />
+              </div>
+              <span
+                className="text-4xl font-serif font-bold"
+                style={{ color: stat.color }}
+              >
+                {stat.value}
+              </span>
+              <span className="text-xs font-mono tracking-wider uppercase opacity-50" style={{ color: 'var(--foreground)' }}>
+                {stat.label}
+              </span>
+            </motion.div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ─── Animated gradient orb divider ────────────────────────────────
+function GlowDivider({ accentColor = '#6366f1' }: { accentColor?: string }) {
+  return (
+    <div className="relative w-full flex justify-center py-4 overflow-hidden">
+      <motion.div
+        className="rounded-full"
+        style={{
+          width: 600,
+          height: 1,
+          background: `linear-gradient(to right, transparent, ${accentColor}, transparent)`,
+        }}
+        animate={{ opacity: [0.3, 1, 0.3] }}
+        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="absolute rounded-full"
+        style={{
+          width: 200,
+          height: 60,
+          background: accentColor,
+          filter: 'blur(50px)',
+          opacity: 0.12,
+        }}
+        animate={{ scaleX: [1, 1.4, 1], opacity: [0.08, 0.18, 0.08] }}
+        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+      />
+    </div>
+  );
+}
+
+// ─── Typewriter ticker ────────────────────────────────────────────
+const WORDS = ['plan smarter', 'track faster', 'budget better', 'stay reminded', 'work with AI'];
+
+function TypewriterTicker() {
+  const [idx, setIdx] = useState(0);
+  const [displayed, setDisplayed] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    const word = WORDS[idx];
+    let timeout: ReturnType<typeof setTimeout>;
+
+    if (!deleting && displayed.length < word.length) {
+      timeout = setTimeout(() => setDisplayed(word.slice(0, displayed.length + 1)), 65);
+    } else if (!deleting && displayed.length === word.length) {
+      timeout = setTimeout(() => setDeleting(true), 1600);
+    } else if (deleting && displayed.length > 0) {
+      timeout = setTimeout(() => setDisplayed(word.slice(0, displayed.length - 1)), 35);
+    } else {
+      setDeleting(false);
+      setIdx(i => (i + 1) % WORDS.length);
+    }
+    return () => clearTimeout(timeout);
+  }, [displayed, deleting, idx]);
+
+  return (
+    <section style={{ background: 'var(--background)' }} className="py-20 px-6">
+      <div className="max-w-4xl mx-auto text-center">
+        <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="mt-20 mb-8 flex flex-col items-center gap-4 px-6 w-full"
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+          className="text-sm font-mono tracking-[0.3em] uppercase opacity-40 mb-6"
+          style={{ color: 'var(--foreground)' }}
         >
-          <p className="text-xs font-mono tracking-[0.3em] uppercase text-[#E2E8F0]/50">Ready to take control?</p>
+          Built to help you
+        </motion.p>
+        <h2
+          className="text-[clamp(38px,6vw,88px)] font-serif leading-[1.05] tracking-tight"
+          style={{ color: 'var(--foreground)' }}
+        >
+          Let AI help you{' '}
+          <span
+            style={{
+              backgroundImage: 'linear-gradient(to right, #6366f1, #a855f7)',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              color: 'transparent',
+            }}
+          >
+            {displayed}
+            <span
+              style={{
+                display: 'inline-block',
+                width: '2px',
+                height: '0.85em',
+                background: '#a855f7',
+                marginLeft: 3,
+                verticalAlign: 'middle',
+                borderRadius: 2,
+              }}
+              className="animate-pulse"
+            />
+          </span>
+        </h2>
+      </div>
+    </section>
+  );
+}
+
+// ─── Scrolling feature band ────────────────────────────────────────
+const FEATURES = [
+  '⚡ AI Task Prioritization',
+  '📊 Budget Tracking',
+  '🔔 Smart Reminders',
+  '📁 Secure File Vault',
+  '🤖 Gemini AI Chatbot',
+  '📈 Progress Analytics',
+  '🏷️ Custom Labels',
+  '🌐 Real-time Sync',
+];
+
+function FeatureBand() {
+  const doubled = [...FEATURES, ...FEATURES];
+  return (
+    <div
+      className="relative w-full overflow-hidden py-5"
+      style={{
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        background: 'rgba(255,255,255,0.015)',
+      }}
+    >
+      {/* fade masks */}
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 80, background: 'linear-gradient(to right, var(--background), transparent)', zIndex: 1, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, background: 'linear-gradient(to left, var(--background), transparent)', zIndex: 1, pointerEvents: 'none' }} />
+      <motion.div
+        className="flex items-center gap-12 whitespace-nowrap"
+        style={{ width: 'max-content' }}
+        animate={{ x: ['0%', '-50%'] }}
+        transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+      >
+        {doubled.map((f, i) => (
+          <span
+            key={i}
+            className="text-sm font-mono tracking-widest opacity-50"
+            style={{ color: 'var(--foreground)' }}
+          >
+            {f}
+          </span>
+        ))}
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Final CTA section ─────────────────────────────────────────────
+function FinalCTA() {
+  return (
+    <section style={{ background: 'var(--background)' }} className="py-32 px-6 relative overflow-hidden">
+      {/* Background orb */}
+      <div
+        className="absolute rounded-full pointer-events-none"
+        style={{
+          width: 500,
+          height: 500,
+          background: 'radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%)',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          filter: 'blur(40px)',
+        }}
+      />
+      <div className="max-w-2xl mx-auto text-center relative z-10">
+        <motion.span
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-[10px] font-mono tracking-[0.4em] uppercase opacity-40 block mb-6"
+          style={{ color: 'var(--foreground)' }}
+        >
+          Start your journey
+        </motion.span>
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7, delay: 0.1 }}
+          className="text-[clamp(32px,5vw,64px)] font-serif leading-tight tracking-tight mb-6"
+          style={{ color: 'var(--foreground)' }}
+        >
+          Your most productive
+          <br />
+          workspace awaits
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 0.55 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7, delay: 0.2 }}
+          className="text-sm md:text-base mb-10 font-light"
+          style={{ color: 'var(--foreground)' }}
+        >
+          Join thousands already using ProTask AI to plan, track, and achieve more
+          every single day.
+        </motion.p>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.3, type: 'spring', stiffness: 200 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4"
+        >
           <LightBeamButton
             as={Link}
-            to="/login"
-            className="w-full max-w-xs px-10 py-4 text-xs font-mono font-bold tracking-[0.2em] uppercase transition-all active:scale-95 hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(139,92,246,0.5)] text-white rounded-xl"
-            gradientColors={["#8B5CF6", "#06B6D4", "#8B5CF6"]}
+            to="/register"
+            className="px-10 py-4 text-sm font-mono font-bold tracking-[0.15em] uppercase transition-all active:scale-95 hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(139,92,246,0.5)] text-white rounded-2xl"
+            gradientColors={['#6366f1', '#a855f7', '#6366f1']}
           >
-            Get Started
+            Get Started Free
           </LightBeamButton>
+          <Link
+            to="/login"
+            className="flex items-center gap-2 text-sm font-mono tracking-wider opacity-50 hover:opacity-80 transition-opacity"
+            style={{ color: 'var(--foreground)' }}
+          >
+            Sign in instead <ArrowRight size={14} />
+          </Link>
         </motion.div>
       </div>
+    </section>
+  );
+}
+
+// ─── Home Page ────────────────────────────────────────────────────
+export default function Home() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const rafRef   = useRef<number | null>(null);
+
+  // Custom JS-controlled fade loop
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const FADE_DURATION = 0.5;
+
+    function tick() {
+      if (!video) return;
+      const { currentTime, duration } = video;
+      if (!duration || isNaN(duration)) { rafRef.current = requestAnimationFrame(tick); return; }
+      if (currentTime < FADE_DURATION) {
+        video.style.opacity = String(currentTime / FADE_DURATION);
+      } else if (currentTime > duration - FADE_DURATION) {
+        video.style.opacity = String((duration - currentTime) / FADE_DURATION);
+      } else {
+        video.style.opacity = '1';
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    }
+
+    function handleEnded() {
+      if (!video) return;
+      video.style.opacity = '0';
+      video.pause();
+      setTimeout(() => { video.currentTime = 0; video.play().catch(() => {}); }, 100);
+    }
+
+    video.style.opacity = '0';
+    video.addEventListener('ended', handleEnded);
+    video.addEventListener('play', () => { rafRef.current = requestAnimationFrame(tick); });
+    video.play().catch(() => {});
+
+    return () => {
+      video.removeEventListener('ended', handleEnded);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  return (
+    <div className="relative w-full font-sans" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
+
+      {/* ── HERO ─────────────────────────────────────────────────── */}
+      <div className="relative w-full overflow-hidden" style={{ minHeight: '100svh' }}>
+        {/* Background video */}
+        <video
+          ref={videoRef}
+          src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_065045_c44942da-53c6-4804-b734-f9e07fc22e08.mp4"
+          muted playsInline preload="auto"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0, zIndex: 0 }}
+        />
+
+        {/* Floating particles */}
+        <Particles />
+
+        {/* Hero content */}
+        <div className="relative z-10 flex flex-col" style={{ minHeight: '100svh', overflow: 'visible' }}>
+          <HeroNavbar />
+
+          {/* Centered content */}
+          <div className="flex-1 flex items-center justify-center relative" style={{ overflow: 'visible' }}>
+            {/* Blurred oval */}
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 984, height: 527, opacity: 0.9, background: 'rgb(3, 7, 18)', filter: 'blur(82px)', pointerEvents: 'none', zIndex: 0 }} />
+
+            {/* Text */}
+            <div className="relative z-10 flex flex-col items-start px-8 md:px-16 max-w-7xl w-full">
+
+              {/* Headline */}
+              <motion.h1
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3, type: 'spring', stiffness: 100 }}
+                style={{
+                  fontSize: 'clamp(80px, 14vw, 220px)',
+                  fontFamily: '"General Sans", ui-sans-serif, system-ui, sans-serif',
+                  fontWeight: 400,
+                  lineHeight: 1.02,
+                  letterSpacing: '-0.024em',
+                  margin: 0,
+                  color: 'var(--foreground)',
+                }}
+              >
+                <span>ProTask </span>
+                <span style={{
+                  backgroundImage: 'linear-gradient(to left, #6366f1, #a855f7, #fcd34d)',
+                  WebkitBackgroundClip: 'text', backgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent', color: 'transparent',
+                }}>
+                  AI
+                </span>
+              </motion.h1>
+
+              {/* Subtitle */}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 0.8, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.5 }}
+                style={{ color: 'var(--hero-sub)', fontSize: '1.125rem', lineHeight: '2rem', maxWidth: '28rem', marginTop: 9 }}
+              >
+                Your AI-powered workspace to plan,
+                <br />
+                track, and conquer every task effortlessly.
+              </motion.p>
+
+              {/* CTA */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.7 }}
+              >
+                <Link
+                  to="/register"
+                  className="liquid-glass mt-[25px] inline-flex items-center rounded-full font-medium transition-all duration-200 hover:bg-white/10 hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(139,92,246,0.4)]"
+                  style={{ paddingLeft: 29, paddingRight: 29, paddingTop: 24, paddingBottom: 24, color: 'var(--foreground)', fontSize: '0.9rem' }}
+                >
+                  Get Started Free
+                </Link>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── FEATURE BAND ─────────────────────────────────────────── */}
+      <div id="features"><FeatureBand /></div>
+
+      {/* ── STATS ────────────────────────────────────────────────── */}
+      <StatsSection />
+
+      <GlowDivider accentColor="#6366f1" />
+
+      {/* ── TYPEWRITER ───────────────────────────────────────────── */}
+      <div id="howitworks"><TypewriterTicker /></div>
+
+      <GlowDivider accentColor="#a855f7" />
+
+      {/* ── STICKY STACK CARDS ───────────────────────────────────── */}
+      <div id="showcase"><StickyStackCards /></div>
+
+      {/* ── FINAL CTA ────────────────────────────────────────────── */}
+      <div id="getstarted"><FinalCTA /></div>
     </div>
   );
 }
