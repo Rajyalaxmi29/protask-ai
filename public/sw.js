@@ -1,17 +1,17 @@
-// Simple offline caching service worker for PWABuilder
+// Empty service worker to clear previous caches and prevent aggressive offline blockages
 self.addEventListener('install', (e) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.open('protask-cache').then((cache) => {
-      // Don't cache everything right now, just cache the root
-      return cache.addAll(['/']);
+    caches.keys().then((keyList) => {
+      return Promise.all(keyList.map((key) => caches.delete(key)));
     })
   );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    caches.match(e.request).then((response) => {
-      return response || fetch(e.request);
-    })
-  );
+  // Do nothing, let the browser handle it normally
 });

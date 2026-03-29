@@ -3,7 +3,7 @@
   "name": "ProTask AI",
   "short_name": "ProTask",
   "description": "Your AI-Powered Workspace",
-  "start_url": "/?source=pwa",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#020817",
   "theme_color": "#2563eb",
