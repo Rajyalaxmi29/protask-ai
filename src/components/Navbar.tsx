@@ -29,6 +29,7 @@ export default function Navbar() {
   }, [location.pathname]);
 
   const baseNavItems: NavItem[] = [
+    { label: 'Home', to: '/', isAdmin: false },
     { label: 'Dashboard', to: '/dashboard', isAdmin: false },
     { label: 'Tasks', to: '/tasks', isAdmin: false },
     { label: 'Budget', to: '/budget', isAdmin: false },

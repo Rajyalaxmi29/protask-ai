@@ -17,6 +17,7 @@ import { supabase } from './lib/supabase';
 
 // Hide chatbot on public pages
 const PUBLIC_PATHS = ['/', '/login', '/register'];
+const AUTH_ONLY_PATHS = ['/login', '/register'];
 
 function AppContent() {
   const location = useLocation();
@@ -24,21 +25,25 @@ function AppContent() {
   const showChatbot = !PUBLIC_PATHS.includes(location.pathname);
   const [isAuthChecking, setIsAuthChecking] = React.useState(true);
 
+  // 1. Initial Launch Check (Runs exactly once when app opens)
   React.useEffect(() => {
-    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session && PUBLIC_PATHS.includes(location.pathname)) {
+      // On fresh app load, if logged in and on Home or Auth pages, go straight to dashboard
+      // Read window.location.pathname so it only cares about the EXACT entry path, not future clicks
+      if (session && PUBLIC_PATHS.includes(window.location.pathname)) {
         navigate('/dashboard', { replace: true });
       }
       setIsAuthChecking(false);
     });
+  }, []); // <-- Empty array: only runs ONCE
 
-    // Listen for auth changes
+  // 2. Active Session Listener (Handles logouts and active navigation)
+  React.useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session && PUBLIC_PATHS.includes(location.pathname)) {
+      if (session && AUTH_ONLY_PATHS.includes(location.pathname)) {
         navigate('/dashboard', { replace: true });
       } else if (!session && !PUBLIC_PATHS.includes(location.pathname)) {
-        // Auto sign-out redirect
+        // Auto sign-out redirect for protected routes
         navigate('/login', { replace: true });
       }
     });
