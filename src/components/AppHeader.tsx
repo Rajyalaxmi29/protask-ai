@@ -1,17 +1,18 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
-import MonexLogo from './MonexLogo';
+import AppLogo from './AppLogo';
 
 interface Props {
   title?: string;
   showLogo?: boolean;
+  forceDesktopLogo?: boolean;
   showBack?: boolean;
   showTheme?: boolean;
   rightContent?: React.ReactNode;
 }
 
-export default function AppHeader({ title, showLogo, showBack, showTheme = true, rightContent }: Props) {
+export default function AppHeader({ title, showLogo, forceDesktopLogo, showBack, showTheme = true, rightContent }: Props) {
   const navigate = useNavigate();
 
   return (
@@ -24,7 +25,7 @@ export default function AppHeader({ title, showLogo, showBack, showTheme = true,
             </svg>
           </button>
         )}
-        {showLogo && <MonexLogo size={30} showText />}
+        {showLogo && <div className={forceDesktopLogo ? "" : "mobile-only-logo"}><AppLogo size={32} showText /></div>}
         {title && <span className="header-title">{title}</span>}
       </div>
       <div className="header-actions">

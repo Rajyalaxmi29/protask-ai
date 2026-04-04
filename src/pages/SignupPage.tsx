@@ -42,7 +42,7 @@ export default function SignupPage() {
 
   return (
     <div className="page--full" style={{ display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.4s ease' }}>
-      <AppHeader showLogo showTheme />
+      <AppHeader showLogo forceDesktopLogo showTheme />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px var(--space-md)' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>

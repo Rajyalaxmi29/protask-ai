@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [upcomingReminders, setUpcomingReminders] = useState<Reminder[]>([]);
   const [userName, setUserName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const today = new Date().toISOString().split('T')[0];
   const now = new Date().toISOString();
@@ -30,6 +31,7 @@ export default function DashboardPage() {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
       setUserName(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User');
+      setAvatarUrl(user?.user_metadata?.avatar_url || null);
 
       const uid = user?.id;
       if (!uid) { setLoading(false); return; }
@@ -116,9 +118,13 @@ export default function DashboardPage() {
         rightContent={
           <div
             onClick={() => navigate('/profile')}
-            style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', color: '#fff', border: '2px solid rgba(255,255,255,0.15)' }}
+            style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', color: '#fff', border: '2px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}
           >
-            {userName.charAt(0).toUpperCase()}
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              userName.charAt(0).toUpperCase()
+            )}
           </div>
         }
       />
@@ -134,16 +140,16 @@ export default function DashboardPage() {
         <div style={{ background: 'var(--accent-grad)', borderRadius: 'var(--radius-lg)', padding: '18px', marginBottom: 20, boxShadow: 'var(--shadow-blue)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: -20, right: -20, width: 120, height: 120, background: 'rgba(255,255,255,0.07)', borderRadius: '50%' }} />
           <div style={{ position: 'absolute', bottom: -30, left: -10, width: 80, height: 80, background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }} />
-          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.78rem', fontWeight: 600, marginBottom: 4 }}>Today's Overview</div>
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.78rem', fontWeight: 600, marginBottom: 12 }}>Today's Overview</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             {[
               { label: 'Pending Tasks', val: counts.tasks },
               { label: 'Reminders Today', val: counts.remindersToday },
               { label: 'Balance', val: `₹${(counts.income - counts.expense).toFixed(0)}` },
             ].map(s => (
-              <div key={s.label}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{s.val}</div>
-                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>{s.label}</div>
+              <div key={s.label} style={{ flex: 1, minWidth: '100px' }}>
+                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{s.val}</div>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.65)', marginTop: 6 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -153,7 +159,7 @@ export default function DashboardPage() {
         <div className="section-header">
           <span className="section-title">Features</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+        <div className="feature-grid" style={{ marginBottom: 24 }}>
           {MODULES.map(m => (
             <div key={m.title} className="feature-card" onClick={() => navigate(m.path)}>
               <div className="feature-card__header">

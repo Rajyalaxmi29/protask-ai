@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import MonexLogo from '../components/MonexLogo';
+import AppLogo from '../components/AppLogo';
 import type { Session } from '@supabase/supabase-js';
 
 interface Props {
@@ -27,7 +27,7 @@ export default function SplashPage({ session }: Props) {
     <div className="page--full" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, animation: 'fadeIn 0.5s ease' }}>
       <div style={{ position: 'absolute', width: 280, height: 280, background: 'radial-gradient(circle, rgba(37,99,235,0.2) 0%, transparent 70%)', borderRadius: '50%', animation: 'pulse 2s ease infinite' }} />
       <div style={{ animation: 'scaleIn 0.6s cubic-bezier(0.4,0,0.2,1) 0.3s both' }}>
-        <MonexLogo size={80} />
+        <AppLogo size={100} />
       </div>
       <div style={{ animation: 'slideUp 0.5s ease 0.6s both', textAlign: 'center' }}>
         <div style={{ fontSize: '2.2rem', fontWeight: 900, letterSpacing: '-0.04em', color: 'var(--text-primary)' }}>ProTask</div>

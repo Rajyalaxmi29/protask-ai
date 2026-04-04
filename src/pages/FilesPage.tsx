@@ -95,17 +95,24 @@ export default function FilesPage() {
 
     try {
       if (tab === 'upload' && selectedFile) {
-        const ext = selectedFile.name.split('.').pop();
-        const path = `${session.user.id}/${Date.now()}_${selectedFile.name}`;
+        const ext = selectedFile.name.split('.').pop() || '';
+        // Sanitize the filename to avoid 400 bad request with spaces/special chars in Supabase Storage
+        const safeName = selectedFile.name.replace(/[^a-zA-Z0-9.\-]/g, '_').toLowerCase();
+        const path = `${session.user.id}/${Date.now()}_${safeName}`;
 
-        const { error: storageErr } = await supabase.storage.from('files').upload(path, selectedFile, { upsert: false });
+        const { data: storageData, error: storageErr } = await supabase.storage.from('files').upload(path, selectedFile, { upsert: false });
+        
         if (storageErr) {
-          // If bucket doesn't exist, fall back to storing file info only
+          console.error("Storage upload error detailed:", storageErr);
           if (storageErr.message?.includes('Bucket not found') || storageErr.message?.includes('bucket')) {
-            setError('Storage bucket not set up. Please create a "files" bucket in Supabase Storage first, or use the Link tab instead.');
+            setError('Storage bucket not set up. Please create a "files" bucket in Supabase Storage first.');
             setUploading(false); return;
           }
-          throw storageErr;
+          if (storageErr.message?.includes('row violates row-level security policy') || storageErr.message?.includes('RLS')) {
+            setError('RLS Policy blocked upload. Please run the provided SQL in Supabase to allow authenticated users to upload to "files".');
+            setUploading(false); return;
+          }
+          throw new Error(`Storage error: ${storageErr.message}`);
         }
 
         const { data: urlData } = supabase.storage.from('files').getPublicUrl(path);

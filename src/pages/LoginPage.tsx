@@ -24,7 +24,7 @@ export default function LoginPage() {
 
   return (
     <div className="page--full" style={{ display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.4s ease' }}>
-      <AppHeader showLogo showTheme />
+      <AppHeader showLogo forceDesktopLogo showTheme />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px var(--space-md)', gap: 0 }}>
         {/* Hero */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
@@ -15,10 +15,13 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { theme, toggleTheme, isDark } = useTheme();
   const [profile, setProfile] = useState<Profile>({ name: '', email: '', currency: '₹' });
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: '' });
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [stats, setStats] = useState({ tasks: 0, reminders: 0, transactions: 0, files: 0 });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -28,6 +31,7 @@ export default function ProfilePage() {
       const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
       setProfile({ name, email: user.email || '', currency: '₹' });
       setForm({ name });
+      setAvatarUrl(user.user_metadata?.avatar_url || null);
 
       const [t, r, tx, f] = await Promise.all([
         supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -46,6 +50,33 @@ export default function ProfilePage() {
     setProfile(p => ({ ...p, name: form.name }));
     setSaving(false);
     setEditing(false);
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const path = `${session.user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file);
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const url = urlData.publicUrl;
+
+      // Update auth metadata
+      await supabase.auth.updateUser({ data: { avatar_url: url } });
+      setAvatarUrl(url);
+    } catch (e: any) {
+      alert(e.message || 'Avatar upload failed. Check avatars bucket exists.');
+    }
+    setUploadingAvatar(false);
   };
 
   const handleLogout = async () => {
@@ -67,17 +98,44 @@ export default function ProfilePage() {
       <div className="page-content">
         {/* Avatar + name */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <div style={{
-            width: 90, height: 90, borderRadius: '50%',
-            background: 'var(--accent-grad)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '2.2rem', fontWeight: 900,
-            border: '4px solid var(--bg-card)',
-            boxShadow: 'var(--shadow-blue)',
-            color: '#fff',
-          }}>
-            {profile.name.charAt(0).toUpperCase()}
+          <div style={{ position: 'relative' }}>
+            <div 
+              style={{
+                width: 90, height: 90, borderRadius: '50%',
+                background: 'var(--accent-grad)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '2.2rem', fontWeight: 900,
+                border: '4px solid var(--bg-card)',
+                boxShadow: 'var(--shadow-blue)',
+                color: '#fff',
+                overflow: 'hidden',
+                cursor: 'pointer',
+              }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                profile.name.charAt(0).toUpperCase()
+              )}
+            </div>
+            
+            {uploadingAvatar && (
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="spinner" style={{ width: 24, height: 24, borderWidth: 3 }} />
+              </div>
+            )}
+            
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--bg-secondary)', border: '2px solid var(--border)', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.8rem', zIndex: 2 }}
+            >
+              📷
+            </div>
           </div>
+          
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
+
           {editing ? (
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <input id="profile-name" type="text" className="input" value={form.name} onChange={e => setForm({ name: e.target.value })} style={{ textAlign: 'center' }} placeholder="Display name" />

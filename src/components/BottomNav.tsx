@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import AppLogo from './AppLogo';
 
 const NAV = [
   {
@@ -62,6 +63,11 @@ export default function BottomNav() {
 
   return (
     <nav className="bottom-nav" role="navigation" aria-label="Main navigation">
+      <div className="desktop-logo" style={{ marginBottom: 32, paddingLeft: 12 }}>
+        <div style={{ display: 'inline-block', cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
+          <AppLogo size={32} showText />
+        </div>
+      </div>
       {NAV.map(item => {
         const active = pathname === item.path || pathname.startsWith(item.path + '/');
         return (

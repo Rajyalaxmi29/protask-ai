@@ -5,23 +5,17 @@
   "description": "Your AI-Powered Workspace",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#020817",
-  "theme_color": "#2563eb",
+  "background_color": "#381A46",
+  "theme_color": "#A56ABD",
   "orientation": "portrait-primary",
   "lang": "en-US",
   "dir": "ltr",
   "categories": ["productivity", "utilities", "business"],
   "icons": [
     {
-      "src": "/3d_pen.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/3d_pen.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "/app-icon.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ],
@@ -45,14 +39,14 @@
       "short_name": "Dashboard",
       "description": "View your daily stats",
       "url": "/dashboard",
-      "icons": [{"src": "/3d_pen.png", "sizes": "192x192"}]
+      "icons": [{"src": "/app-icon.jpg", "sizes": "512x512"}]
     },
     {
       "name": "New Task",
       "short_name": "New Task",
       "description": "Create a new task",
       "url": "/tasks",
-      "icons": [{"src": "/3d_pen.png", "sizes": "192x192"}]
+      "icons": [{"src": "/app-icon.jpg", "sizes": "512x512"}]
     }
   ]
 }
