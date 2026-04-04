@@ -1,90 +1,85 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Tasks from './pages/Tasks';
-import Budget from './pages/Budget';
-import Reminders from './pages/Reminders';
-import Files from './pages/Files';
-import LabelDetail from './pages/LabelDetail';
-import Profile from './pages/Profile';
-import Feedback from './pages/Feedback';
-import AdminFeedback from './pages/AdminFeedback';
-import AIChatbot from './components/AIChatbot';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
+import { ThemeProvider } from './contexts/ThemeContext';
+import type { Session } from '@supabase/supabase-js';
 
-// Hide chatbot on public pages
-const PUBLIC_PATHS = ['/', '/login', '/register'];
-const AUTH_ONLY_PATHS = ['/login', '/register'];
+// Pages
+import SplashPage from './pages/SplashPage';
+import OnboardingPage from './pages/OnboardingPage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import DashboardPage from './pages/DashboardPage';
+import TasksPage from './pages/TasksPage';
+import RemindersPage from './pages/RemindersPage';
+import ExpensesPage from './pages/ExpensesPage';
+import FilesPage from './pages/FilesPage';
+import ProfilePage from './pages/ProfilePage';
+import AddExpensePage from './pages/AddExpensePage';
 
-function AppContent() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const showChatbot = !PUBLIC_PATHS.includes(location.pathname);
-  const [isAuthChecking, setIsAuthChecking] = React.useState(true);
+function LoadingScreen() {
+  return (
+    <div className="loading-screen">
+      <div style={{ fontSize: '2.5rem', animation: 'pulse 1.5s ease infinite' }}>⚡</div>
+      <div className="spinner spinner-dark" />
+    </div>
+  );
+}
 
-  // 1. Initial Launch Check (Runs exactly once when app opens)
-  React.useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      // On fresh app load, if logged in and on Home or Auth pages, go straight to dashboard
-      // Read window.location.pathname so it only cares about the EXACT entry path, not future clicks
-      if (session && PUBLIC_PATHS.includes(window.location.pathname)) {
-        navigate('/dashboard', { replace: true });
-      }
-      setIsAuthChecking(false);
+function Protected({ session, children }: { session: Session | null; children: React.ReactNode }) {
+  if (!session) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+export default function App() {
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+
+  useEffect(() => {
+    // Set initial session
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
     });
-  }, []); // <-- Empty array: only runs ONCE
-
-  // 2. Active Session Listener (Handles logouts and active navigation)
-  React.useEffect(() => {
+    // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session && AUTH_ONLY_PATHS.includes(location.pathname)) {
-        navigate('/dashboard', { replace: true });
-      } else if (!session && !PUBLIC_PATHS.includes(location.pathname)) {
-        // Auto sign-out redirect for protected routes
-        navigate('/login', { replace: true });
-      }
+      setSession(session);
     });
-
     return () => subscription.unsubscribe();
-  }, [location.pathname, navigate]);
+  }, []);
 
-  if (isAuthChecking) {
+  // Still loading
+  if (session === undefined) {
     return (
-      <div className="min-h-screen bg-[#020817] flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
+      <ThemeProvider>
+        <div className="app-shell"><LoadingScreen /></div>
+      </ThemeProvider>
     );
   }
 
   return (
-    <>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/tasks" element={<Tasks />} />
-        <Route path="/budget" element={<Budget />} />
-        <Route path="/reminders" element={<Reminders />} />
-        <Route path="/files" element={<Files />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/feedback" element={<Feedback />} />
-        <Route path="/admin-feedback" element={<AdminFeedback />} />
-        <Route path="/labels/:id" element={<LabelDetail />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      {showChatbot && <AIChatbot />}
-    </>
-  );
-}
+    <ThemeProvider>
+      <BrowserRouter>
+        <div className="app-shell">
+          <Routes>
+            {/* Public */}
+            <Route path="/" element={<SplashPage session={session} />} />
+            <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+            <Route path="/signup" element={session ? <Navigate to="/dashboard" replace /> : <SignupPage />} />
 
-export default function App() {
-  return (
-    <Router>
-      <AppContent />
-    </Router>
+            {/* Protected */}
+            <Route path="/dashboard"  element={<Protected session={session}><DashboardPage /></Protected>} />
+            <Route path="/tasks"      element={<Protected session={session}><TasksPage /></Protected>} />
+            <Route path="/reminders"  element={<Protected session={session}><RemindersPage /></Protected>} />
+            <Route path="/expenses"   element={<Protected session={session}><ExpensesPage /></Protected>} />
+            <Route path="/files"      element={<Protected session={session}><FilesPage /></Protected>} />
+            <Route path="/profile"    element={<Protected session={session}><ProfilePage /></Protected>} />
+            <Route path="/add-expense" element={<Protected session={session}><AddExpensePage /></Protected>} />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
