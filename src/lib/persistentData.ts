@@ -78,9 +78,10 @@ class PersistentData {
     // 1. Add to optimistic queue
     this.addToQueue(mutation);
 
-    // 2. Try to sync immediately if online
+    // 2. Trigger sync in the background IF online, but do NOT await it
+    // This makes the UI update INSTANTLY even on a slow connection
     if (navigator.onLine) {
-      await this.syncItem(mutation);
+      this.syncItem(mutation).catch(e => console.warn('Background sync failed:', e));
     }
     
     return mutation.data;
