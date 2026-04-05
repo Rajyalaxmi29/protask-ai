@@ -15,16 +15,27 @@ class PersistentData {
   private userKey = 'last_user_id';
 
   public async getUserId(): Promise<string | null> {
+    const cachedId = localStorage.getItem(this.userKey);
+    
+    // If we have it cached, return it instantly to prevent UI blocking
+    if (cachedId) return cachedId;
+
     if (navigator.onLine) {
       try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.user.id) {
+        // Only try the network if we don't have a cached ID
+        const { data } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<any>((_, reject) => setTimeout(() => reject('timeout'), 2000))
+        ]);
+        if (data?.session?.user?.id) {
           localStorage.setItem(this.userKey, data.session.user.id);
           return data.session.user.id;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Auth check failed or timed out, returning null');
+      }
     }
-    return localStorage.getItem(this.userKey);
+    return null;
   }
 
   // --- Read Methods ---
