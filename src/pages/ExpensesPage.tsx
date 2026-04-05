@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
+import { persistentData } from '../lib/persistentData';
 import type { Transaction } from '../lib/supabase';
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -35,8 +36,8 @@ export default function ExpensesPage() {
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
-    const { data, error } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
-    setTransactions((error ? [] : data || []) as Transaction[]);
+    const data = await persistentData.get<Transaction>('transactions', user.id, 'date');
+    setTransactions(data);
     setLoading(false);
   }
 
@@ -48,7 +49,7 @@ export default function ExpensesPage() {
   const balance = totalIncome - totalExpense;
 
   const deleteTransaction = async (id: string) => {
-    await supabase.from('transactions').delete().eq('id', id);
+    await persistentData.mutate('transactions', 'DELETE', { id });
     setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
@@ -56,7 +57,8 @@ export default function ExpensesPage() {
     if (!form.title || !form.amount || parseFloat(form.amount) <= 0) { setError('Valid title and amount required.'); return; }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { data, error: err } = await supabase.from('transactions').insert({
+    
+    const newTx = {
       user_id: user!.id,
       type: addType,
       title: form.title,
@@ -65,12 +67,14 @@ export default function ExpensesPage() {
       date: form.date,
       via: form.via,
       note: form.note || null,
-    }).select().single();
-    setSaving(false);
-    if (err) { setError(err.message); return; }
-    setTransactions(prev => [data as Transaction, ...prev]);
+      created_at: new Date().toISOString()
+    };
+
+    const saved = await persistentData.mutate('transactions', 'INSERT', newTx);
+    setTransactions(prev => [saved as Transaction, ...prev]);
     setForm({ title: '', amount: '', category: 'Food', via: 'Card', date: new Date().toISOString().split('T')[0], note: '' });
     setShowAdd(false);
+    setSaving(false);
     setError('');
   };
 

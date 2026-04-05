@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
+import { persistentData } from '../lib/persistentData';
 import type { Task, Priority, TaskStatus } from '../lib/supabase';
 
 const PRIORITIES: Priority[] = ['low', 'medium', 'high'];
@@ -29,8 +30,8 @@ export default function TasksPage() {
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
-    const { data, error } = await supabase.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-    setTasks((error ? [] : data || []) as Task[]);
+    const data = await persistentData.get<Task>('tasks', user.id);
+    setTasks(data);
     setLoading(false);
   }
 
@@ -40,12 +41,12 @@ export default function TasksPage() {
 
   const toggleStatus = async (task: Task) => {
     const newStatus: TaskStatus = task.status === 'done' ? 'todo' : 'done';
-    await supabase.from('tasks').update({ status: newStatus }).eq('id', task.id);
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+    const updated = await persistentData.mutate('tasks', 'UPDATE', { ...task, status: newStatus });
+    setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
   };
 
   const deleteTask = async (id: string) => {
-    await supabase.from('tasks').delete().eq('id', id);
+    await persistentData.mutate('tasks', 'DELETE', { id });
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
@@ -55,23 +56,22 @@ export default function TasksPage() {
     setError('');
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) { setError('Not logged in. Please sign in again.'); setSaving(false); return; }
-    const { data, error: err } = await supabase.from('tasks').insert({
+    
+    const newTask = {
       user_id: session.user.id,
       title: form.title.trim(),
       description: form.description || null,
       priority: form.priority,
       status: 'todo',
       due_date: form.due_date || null,
-    }).select().single();
-    setSaving(false);
-    if (err) {
-      console.error('Insert error:', err);
-      setError(err.message || 'Failed to save. Check Supabase RLS policies.');
-      return;
-    }
-    setTasks(prev => [data as Task, ...prev]);
+      created_at: new Date().toISOString()
+    };
+
+    const saved = await persistentData.mutate('tasks', 'INSERT', newTask);
+    setTasks(prev => [saved as Task, ...prev]);
     setForm({ title: '', description: '', priority: 'medium', due_date: '' });
     setShowAdd(false);
+    setSaving(false);
     setError('');
   };
 

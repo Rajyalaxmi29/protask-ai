@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
+import { persistentData } from '../lib/persistentData';
 import type { Reminder } from '../lib/supabase';
 
 const CATEGORIES = ['General', 'Work', 'Health', 'Personal', 'Finance', 'Shopping', 'Travel', 'Study'];
@@ -35,8 +36,8 @@ export default function RemindersPage() {
   async function load() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) { setLoading(false); return; }
-    const { data, error } = await supabase.from('reminders').select('*').eq('user_id', session.user.id).order('remind_at', { ascending: true });
-    setReminders((error ? [] : data || []) as Reminder[]);
+    const data = await persistentData.get<Reminder>('reminders', session.user.id, 'remind_at');
+    setReminders(data);
     setLoading(false);
   }
 
@@ -49,12 +50,12 @@ export default function RemindersPage() {
   });
 
   const toggleDone = async (r: Reminder) => {
-    await supabase.from('reminders').update({ is_done: !r.is_done }).eq('id', r.id);
-    setReminders(prev => prev.map(x => x.id === r.id ? { ...x, is_done: !x.is_done } : x));
+    const updated = await persistentData.mutate('reminders', 'UPDATE', { ...r, is_done: !r.is_done });
+    setReminders(prev => prev.map(x => x.id === r.id ? updated : x));
   };
 
   const deleteReminder = async (id: string) => {
-    await supabase.from('reminders').delete().eq('id', id);
+    await persistentData.mutate('reminders', 'DELETE', { id });
     setReminders(prev => prev.filter(r => r.id !== id));
   };
 
@@ -63,19 +64,22 @@ export default function RemindersPage() {
     setSaving(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) { setError('Not logged in. Please sign in again.'); setSaving(false); return; }
-    const { data, error: err } = await supabase.from('reminders').insert({
+    
+    const newRem = {
       user_id: session.user.id,
       title: form.title.trim(),
       description: form.description || null,
       remind_at: new Date(form.remind_at).toISOString(),
       category: form.category,
       is_done: false,
-    }).select().single();
-    setSaving(false);
-    if (err) { setError(err.message); return; }
-    setReminders(prev => [...prev, data as Reminder].sort((a, b) => a.remind_at.localeCompare(b.remind_at)));
+      created_at: new Date().toISOString()
+    };
+
+    const saved = await persistentData.mutate('reminders', 'INSERT', newRem);
+    setReminders(prev => [...prev, saved as Reminder].sort((a, b) => a.remind_at.localeCompare(b.remind_at)));
     setForm({ title: '', description: '', remind_at: '', category: 'General' });
     setShowAdd(false);
+    setSaving(false);
     setError('');
   };
 

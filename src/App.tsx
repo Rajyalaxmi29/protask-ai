@@ -6,6 +6,7 @@ import { InstallProvider } from './contexts/InstallContext';
 import type { Session } from '@supabase/supabase-js';
 import NotificationManager from './components/NotificationManager';
 import IOSInstallPrompt from './components/IOSInstallPrompt';
+import SyncManager from './components/SyncManager';
 
 // Pages
 import SplashPage from './pages/SplashPage';
@@ -102,6 +103,7 @@ export default function App() {
         <BrowserRouter>
           <div className="app-shell">
             <NotificationManager />
+            <SyncManager />
             <IOSInstallPrompt />
             <OfflineBanner />
             <Routes>

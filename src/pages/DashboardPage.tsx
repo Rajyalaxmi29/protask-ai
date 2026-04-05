@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
+import { persistentData } from '../lib/persistentData';
 import type { Task, Reminder, Transaction, FileRecord } from '../lib/supabase';
 
 interface Counts {
@@ -36,17 +37,12 @@ export default function DashboardPage() {
       const uid = user?.id;
       if (!uid) { setLoading(false); return; }
 
-      const [tasksRes, remRes, txRes, filesRes] = await Promise.all([
-        supabase.from('tasks').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
-        supabase.from('reminders').select('*').eq('user_id', uid).order('remind_at', { ascending: true }),
-        supabase.from('transactions').select('*').eq('user_id', uid),
-        supabase.from('files').select('*').eq('user_id', uid),
+      const [tasks, reminders, transactions, files] = await Promise.all([
+        persistentData.get<Task>('tasks', uid),
+        persistentData.get<Reminder>('reminders', uid, 'remind_at'),
+        persistentData.get<Transaction>('transactions', uid, 'date'),
+        persistentData.get<FileRecord>('files', uid),
       ]);
-
-      const tasks = (tasksRes.error ? [] : tasksRes.data || []) as Task[];
-      const reminders = (remRes.error ? [] : remRes.data || []) as Reminder[];
-      const transactions = (txRes.error ? [] : txRes.data || []) as Transaction[];
-      const files = (filesRes.error ? [] : filesRes.data || []) as FileRecord[];
 
       const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
       const expense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);

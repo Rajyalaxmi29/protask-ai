@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
+import { persistentData } from '../lib/persistentData';
 
 export default function AddExpensePage() {
   const navigate = useNavigate();
@@ -22,13 +23,20 @@ export default function AddExpensePage() {
     setSaving(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) { setError('Not logged in. Please sign in again.'); setSaving(false); return; }
-    const { error: err } = await supabase.from('transactions').insert({
-      user_id: session.user.id, type, title: form.title,
-      amount: parseFloat(form.amount), category: form.category,
-      date: form.date, via: form.via, note: form.note || null,
+    
+    await persistentData.mutate('transactions', 'INSERT', {
+      user_id: session.user.id, 
+      type, 
+      title: form.title,
+      amount: parseFloat(form.amount), 
+      category: form.category,
+      date: form.date, 
+      via: form.via, 
+      note: form.note || null,
+      created_at: new Date().toISOString()
     });
+    
     setSaving(false);
-    if (err) { setError(err.message); return; }
     setSuccess(true);
     setTimeout(() => navigate('/expenses'), 1200);
   };
