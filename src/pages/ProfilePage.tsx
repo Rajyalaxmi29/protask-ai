@@ -4,6 +4,7 @@ import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../contexts/ThemeContext';
+import { useInstall } from '../contexts/InstallContext';
 
 interface Profile {
   name: string;
@@ -14,6 +15,7 @@ interface Profile {
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { theme, toggleTheme, isDark } = useTheme();
+  const { isInstallable, install, platform } = useInstall();
   const [profile, setProfile] = useState<Profile>({ name: '', email: '', currency: '₹' });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -208,12 +210,41 @@ export default function ProfilePage() {
         {/* Settings list */}
         <div className="card" style={{ marginBottom: 14, padding: 0, overflow: 'hidden' }}>
           {[
-            { icon: '🔔', label: 'Notifications', sub: 'Manage alerts' },
-            { icon: '💱', label: 'Currency', sub: profile.currency },
+            ...(isInstallable && platform === 'android' ? [{
+              icon: '📲',
+              label: 'Install App',
+              sub: 'Fast access from your home screen',
+              onClick: install
+            }] : []),
+            { 
+              icon: '🔔', 
+              label: 'Notifications', 
+              sub: (typeof Notification !== 'undefined' && Notification.permission === 'granted') ? 'Active' : 'Tap to enable',
+              onClick: async () => {
+                const { notificationService } = await import('../lib/notifications');
+                const granted = await notificationService.requestPermission();
+                if (granted) {
+                  notificationService.show('Notifications Enabled!', {
+                    body: 'You will now receive alerts for reminders and tasks.'
+                  });
+                  window.location.reload();
+                } else if (Notification.permission === 'denied') {
+                  alert('Notifications are blocked. Please enable them in your browser settings.');
+                }
+              }
+            },
+            { icon: '💱', label: 'Currency', sub: profile.currency || '₹' },
             { icon: '🔒', label: 'Privacy & Security', sub: 'Manage access' },
-            { icon: '📊', label: 'Export Data', sub: 'Download your data' },
-          ].map((item, i, arr) => (
-            <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', cursor: 'pointer', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', transition: 'background var(--transition-fast)' }}
+            { 
+              icon: '📊', 
+              label: 'Export Data', 
+              sub: 'Download your data',
+              onClick: () => alert('CSV Export coming soon!')
+            },
+          ].map((item: any, i, arr) => (
+            <div key={item.label} 
+              onClick={item.onClick}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', cursor: 'pointer', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', transition: 'background var(--transition-fast)' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
               <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>

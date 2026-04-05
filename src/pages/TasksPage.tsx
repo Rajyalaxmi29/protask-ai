@@ -109,6 +109,28 @@ export default function TasksPage() {
           ))}
         </div>
 
+        {typeof Notification !== 'undefined' && Notification.permission !== 'granted' && (
+          <div className="card" style={{ marginBottom: 16, background: 'var(--accent-dim)', border: '1px solid var(--accent-light)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: '1.2rem' }}>🔔</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700 }}>Enable Notifications</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Get alerts for your task deadlines.</div>
+              </div>
+              <button 
+                className="btn btn-primary btn-sm" 
+                onClick={async () => {
+                  const { notificationService } = await import('../lib/notifications');
+                  await notificationService.requestPermission();
+                  window.location.reload();
+                }}
+              >
+                Enable
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Task list */}
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
