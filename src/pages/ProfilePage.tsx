@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
+import { persistentData } from '../lib/persistentData';
 import { useTheme } from '../contexts/ThemeContext';
 import { useInstall } from '../contexts/InstallContext';
 
@@ -27,21 +28,37 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      const user = session.user;
-      const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-      setProfile({ name, email: user.email || '', currency: '₹' });
-      setForm({ name });
-      setAvatarUrl(user.user_metadata?.avatar_url || null);
+      const uid = await persistentData.getUserId();
+      if (!uid) return;
 
+      if (navigator.onLine) {
+        supabase.auth.getSession().then(({ data }) => {
+          const user = data.session?.user;
+          if (!user) return;
+          const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+          setProfile({ name, email: user.email || '', currency: '₹' });
+          setForm({ name });
+          setAvatarUrl(user.user_metadata?.avatar_url || null);
+          localStorage.setItem('last_user_name', name);
+          localStorage.setItem('last_user_email', user.email || '');
+          localStorage.setItem('last_avatar_url', user.user_metadata?.avatar_url || '');
+        });
+      } else {
+        const name = localStorage.getItem('last_user_name') || 'User';
+        const email = localStorage.getItem('last_user_email') || '';
+        setProfile({ name, email, currency: '₹' });
+        setForm({ name });
+        setAvatarUrl(localStorage.getItem('last_avatar_url') || null);
+      }
+
+      // Load counts from persistent data (which falls back to cache)
       const [t, r, tx, f] = await Promise.all([
-        supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('reminders').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('files').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        persistentData.get('tasks', uid),
+        persistentData.get('reminders', uid),
+        persistentData.get('transactions', uid),
+        persistentData.get('files', uid),
       ]);
-      setStats({ tasks: t.count || 0, reminders: r.count || 0, transactions: tx.count || 0, files: f.count || 0 });
+      setStats({ tasks: t.length, reminders: r.length, transactions: tx.length, files: f.length });
     }
     load();
   }, []);

@@ -29,13 +29,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      setUserName(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User');
-      setAvatarUrl(user?.user_metadata?.avatar_url || null);
-
-      const uid = user?.id;
+      const uid = await persistentData.getUserId();
       if (!uid) { setLoading(false); return; }
+      
+      // Update basic UI if we can
+      if (navigator.onLine) {
+        supabase.auth.getSession().then(({ data }) => {
+          const user = data.session?.user;
+          setUserName(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User');
+          setAvatarUrl(user?.user_metadata?.avatar_url || null);
+        });
+      } else {
+        setUserName(localStorage.getItem('last_user_name') || 'User');
+      }
 
       const [tasks, reminders, transactions, files] = await Promise.all([
         persistentData.get<Task>('tasks', uid),

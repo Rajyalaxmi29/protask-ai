@@ -28,9 +28,9 @@ export default function TasksPage() {
   const [error, setError] = useState('');
 
   async function load() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-    const data = await persistentData.get<Task>('tasks', user.id);
+    const userId = await persistentData.getUserId();
+    if (!userId) { setLoading(false); return; }
+    const data = await persistentData.get<Task>('tasks', userId);
     setTasks(data);
     setLoading(false);
   }

@@ -21,11 +21,11 @@ export default function AddExpensePage() {
     e.preventDefault();
     if (!form.title || !form.amount || parseFloat(form.amount) <= 0) { setError('Valid title and amount required.'); return; }
     setSaving(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) { setError('Not logged in. Please sign in again.'); setSaving(false); return; }
+    const userId = await persistentData.getUserId();
+    if (!userId) { setError('Not logged in. Please sign in again.'); setSaving(false); return; }
     
     await persistentData.mutate('transactions', 'INSERT', {
-      user_id: session.user.id, 
+      user_id: userId, 
       type, 
       title: form.title,
       amount: parseFloat(form.amount), 

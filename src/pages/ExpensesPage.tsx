@@ -34,9 +34,9 @@ export default function ExpensesPage() {
   const [error, setError] = useState('');
 
   async function load() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-    const data = await persistentData.get<Transaction>('transactions', user.id, 'date');
+    const userId = await persistentData.getUserId();
+    if (!userId) { setLoading(false); return; }
+    const data = await persistentData.get<Transaction>('transactions', userId, 'date');
     setTransactions(data);
     setLoading(false);
   }

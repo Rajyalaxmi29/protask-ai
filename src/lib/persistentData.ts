@@ -12,6 +12,20 @@ interface OfflineMutation {
 
 class PersistentData {
   private queueKey = 'offline_mutations';
+  private userKey = 'last_user_id';
+
+  public async getUserId(): Promise<string | null> {
+    if (navigator.onLine) {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user.id) {
+          localStorage.setItem(this.userKey, data.session.user.id);
+          return data.session.user.id;
+        }
+      } catch (e) {}
+    }
+    return localStorage.getItem(this.userKey);
+  }
 
   // --- Read Methods ---
   public async get<T>(table: string, userId: string, orderBy: string = 'created_at'): Promise<T[]> {

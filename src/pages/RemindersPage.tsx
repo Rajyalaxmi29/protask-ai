@@ -34,9 +34,9 @@ export default function RemindersPage() {
   const now = new Date().toISOString();
 
   async function load() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) { setLoading(false); return; }
-    const data = await persistentData.get<Reminder>('reminders', session.user.id, 'remind_at');
+    const userId = await persistentData.getUserId();
+    if (!userId) { setLoading(false); return; }
+    const data = await persistentData.get<Reminder>('reminders', userId, 'remind_at');
     setReminders(data);
     setLoading(false);
   }
