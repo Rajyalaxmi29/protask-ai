@@ -77,22 +77,59 @@ export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
 
   useEffect(() => {
+    console.log('App mounting...');
+    
+    // Safety timeout: If auth hasn't responded in 3s, assume no session and show the app
+    const loadingTimeout = setTimeout(() => {
+      if (session === undefined) {
+        console.warn('Auth check timed out, showing guest view');
+        setSession(null);
+      }
+    }, 3000);
+
     // Set initial session
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
-    // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-    return () => subscription.unsubscribe();
+    try {
+      supabase.auth.getSession()
+        .then(({ data }) => {
+          console.log('Session retrieved');
+          clearTimeout(loadingTimeout);
+          setSession(data.session || null);
+        })
+        .catch(err => {
+          console.error('Auth error:', err);
+          clearTimeout(loadingTimeout);
+          setSession(null);
+        });
+
+      // Subscribe to auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session || null);
+      });
+
+      return () => {
+        subscription.unsubscribe();
+        clearTimeout(loadingTimeout);
+      };
+    } catch (e) {
+      console.error('Auth init crash:', e);
+      setSession(null);
+      return () => clearTimeout(loadingTimeout);
+    }
   }, []);
 
   // Still loading
   if (session === undefined) {
     return (
       <ThemeProvider>
-        <div className="app-shell"><LoadingScreen /></div>
+        <div className="loading-screen">
+          <LoadingScreen />
+          <button 
+            style={{ position: 'fixed', bottom: 20, background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.2)', fontSize: '0.7rem' }}
+            onClick={() => setSession(null)}
+          >
+            Emergency Load
+          </button>
+        </div>
       </ThemeProvider>
     );
   }
