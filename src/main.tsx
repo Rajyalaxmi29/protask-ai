@@ -8,7 +8,7 @@ const savedTheme = localStorage.getItem('protask_theme') || 'dark';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
 // CLEAR CACHE & FORCE RELOAD FOR MOBILE UPDATES (Nuclear Versioning)
-const PROTASK_V = '52-Premium';
+const PROTASK_V = '53-Bento-Persistence';
 if (localStorage.getItem('protask_version') !== PROTASK_V) {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
