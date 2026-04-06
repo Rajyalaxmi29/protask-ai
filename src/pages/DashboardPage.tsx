@@ -189,7 +189,7 @@ export default function DashboardPage() {
            <div style={{ fontSize: '0.85rem', opacity: 0.8, marginBottom: 8 }}>Total Net Worth</div>
            <div style={{ fontSize: '2.4rem', fontWeight: 900, marginBottom: 12 }}>₹{(counts.income - counts.expense).toLocaleString('en-IN')}</div>
            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: '0.85rem', background: monthlyBalance.isUp ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)', color: monthlyBalance.isUp ? '#4ADE80' : '#F87171', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: '0.85rem', background: monthlyBalance.isUp ? 'rgba(165,106,189,0.2)' : 'rgba(231,219,239,0.2)', color: monthlyBalance.isUp ? 'var(--accent-light)' : 'var(--text-secondary)', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
                  {monthlyBalance.isUp ? '↗' : '↘'} {monthlyBalance.pct}
               </span>
               <span style={{ fontSize: '0.85rem', opacity: 0.6 }}>{monthlyBalance.diff} this month</span>
@@ -217,7 +217,7 @@ export default function DashboardPage() {
            {[
               { title: 'Task Manager', path: '/tasks', icon: '📋', count: counts.tasks, color: '#3B82F6' },
               { title: 'Reminders', path: '/reminders', icon: '🔔', count: counts.reminders, color: '#F59E0B' },
-              { title: 'Finance Tracker', path: '/expenses', icon: '💸', count: transactions.length, color: '#10B981' }
+              { title: 'Finance Tracker', path: '/expenses', icon: '💸', count: transactions.length, color: '#A56ABD' }
            ].map((item, idx) => (
              <div key={idx} onClick={() => navigate(item.path)} className="card" style={{ background: '#fff', border: '1px solid #F0F0F0', padding: '16px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}>
                 <div style={{ width: 44, height: 44, borderRadius: '14px', background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.2rem' }}>
