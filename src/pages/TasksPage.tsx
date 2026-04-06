@@ -99,6 +99,12 @@ export default function TasksPage() {
     setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
   };
 
+  const deleteTask = async (id: string) => {
+    if (!window.confirm('Delete this task?')) return;
+    await persistentData.mutate('tasks', 'DELETE', { id });
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
   return (
     <div className="page" style={{ background: '#F8F9FD' }}>
       <AppHeader
@@ -185,8 +191,17 @@ export default function TasksPage() {
                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                              {formatTime(task.due_date || task.created_at)}
                           </div>
-                          <div style={{ padding: '4px 12px', background: isDone ? 'rgba(74, 222, 128, 0.1)' : 'rgba(37, 99, 235, 0.05)', color: isDone ? '#4ADE80' : 'var(--accent-light)', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>
-                             {isDone ? '(Done)' : (task.status === 'in_progress' ? '(In Progress)' : '(To-Do)')}
+                          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                             <div style={{ padding: '4px 12px', background: isDone ? 'rgba(74, 222, 128, 0.1)' : 'rgba(37, 99, 235, 0.05)', color: isDone ? '#4ADE80' : 'var(--accent-light)', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>
+                                {isDone ? '(Done)' : (task.status === 'in_progress' ? '(In Progress)' : '(To-Do)')}
+                             </div>
+                             <button 
+                                onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', padding: '4px', display: 'flex' }}
+                                aria-label="Delete Task"
+                             >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                             </button>
                           </div>
                        </div>
                     </div>
