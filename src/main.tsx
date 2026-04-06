@@ -7,22 +7,18 @@ import App from './App';
 const savedTheme = localStorage.getItem('protask_theme') || 'dark';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
-// FORCE UNREGISTER Service Worker in development to allow instant mobile updates
-// AGGRESSIVE MOBILE CACHE CLEARING
-// Forces all service workers and caches to reset to ensure mobile browsers see live updates instantly.
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    for (let registration of registrations) {
-      registration.unregister().then(() => {
-        console.log('SW Unregistered Success');
-        if ('caches' in window) {
-           caches.keys().then(names => {
-             for (let name of names) caches.delete(name);
-           });
-        }
-      });
-    }
-  });
+// CLEAR CACHE & FORCE RELOAD FOR MOBILE UPDATES (Nuclear Versioning)
+const PROTASK_V = '52-Premium';
+if (localStorage.getItem('protask_version') !== PROTASK_V) {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
+  }
+  if ('caches' in window) {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }
+  localStorage.setItem('protask_version', PROTASK_V);
+  console.log('Mobile Cache Bursting... Hard Reloading.');
+  window.location.reload();
 }
 if (typeof window !== 'undefined' && window.localStorage) {
   const queueKey = 'offline_mutations';
