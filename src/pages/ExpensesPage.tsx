@@ -27,6 +27,7 @@ export default function ExpensesPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'expense' | 'income'>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showAdd, setShowAdd] = useState(false);
   const [addType, setAddType] = useState<'expense' | 'income'>('expense');
   const [form, setForm] = useState({ title: '', amount: '', category: 'Food', via: 'Card', date: new Date().toISOString().split('T')[0], note: '' });
@@ -85,11 +86,19 @@ export default function ExpensesPage() {
         showBack
         showTheme
         rightContent={
-          <button className="icon-btn" onClick={() => setShowAdd(true)} aria-label="Add" style={{ background: 'var(--accent-grad)', border: 'none', color: '#fff' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="icon-btn" onClick={() => setViewMode(v => v === 'list' ? 'grid' : 'list')} aria-label="Toggle layout">
+              {viewMode === 'list' 
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              }
+            </button>
+            <button className="icon-btn" onClick={() => setShowAdd(true)} aria-label="Add" style={{ background: 'var(--accent-grad)', border: 'none', color: '#fff' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
         }
       />
 
@@ -141,32 +150,66 @@ export default function ExpensesPage() {
             <button className="btn btn-primary" style={{ width: 'auto', padding: '12px 32px', marginTop: 12 }} onClick={() => setShowAdd(true)}>Log First Item</button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(160px, 1fr))' : '1fr', 
+            gap: 12 
+          }}>
             {displayed.map(tx => {
               const color = CATEGORY_COLORS[tx.category] || '#94a3b8';
+              
+              if (viewMode === 'list') {
+                return (
+                  <div key={tx.id} className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 16, border: '1px solid var(--border)' }}>
+                    <div className="tx-icon" style={{ background: `${color}15`, color: color, width: 48, height: 48, borderRadius: 'var(--radius-md)', fontSize: '1.4rem' }}>
+                      <span>{CATEGORY_ICONS[tx.category] || '📋'}</span>
+                    </div>
+                    <div className="tx-info" style={{ flex: 1 }}>
+                      <div className="tx-title" style={{ fontSize: '1rem', fontWeight: 700 }}>{tx.title}</div>
+                      <div className="tx-date" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · {tx.category}
+                      </div>
+                    </div>
+                    <div className="tx-amount" style={{ textAlign: 'right' }}>
+                      <div className="amt" style={{ fontSize: '1.1rem', fontWeight: 800, color: tx.type === 'income' ? 'var(--success)' : 'var(--danger)' }}>
+                        {tx.type === 'income' ? '+' : '-'}₹{tx.amount.toFixed(2)}
+                      </div>
+                      <div className="via" style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 700, textTransform: 'uppercase' }}>{tx.via}</div>
+                    </div>
+                    <button onClick={() => deleteTransaction(tx.id)} className="icon-btn" style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                      </svg>
+                    </button>
+                  </div>
+                );
+              }
+
+              // GRID VIEW
               return (
-                <div key={tx.id} className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 16, border: '1px solid var(--border)' }}>
-                  <div className="tx-icon" style={{ background: `${color}15`, color: color, width: 48, height: 48, borderRadius: 'var(--radius-md)', fontSize: '1.4rem' }}>
-                    <span>{CATEGORY_ICONS[tx.category] || '📋'}</span>
+                <div key={tx.id} className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--border)', minHeight: 180, position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '1.6rem' }}>{CATEGORY_ICONS[tx.category] || '📋'}</div>
+                    <button onClick={() => deleteTransaction(tx.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                    </button>
                   </div>
-                  <div className="tx-info" style={{ flex: 1 }}>
-                    <div className="tx-title" style={{ fontSize: '1rem', fontWeight: 700 }}>{tx.title}</div>
-                    <div className="tx-date" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                      {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · {tx.category}
+                  
+                  <div style={{ flex: 1 }}>
+                    <div className="tx-title" style={{ fontSize: '0.95rem', fontWeight: 700, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{tx.title}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4 }}>{tx.category} · {tx.via}</div>
+                  </div>
+
+                  <div style={{ marginTop: 'auto' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 900, color: tx.type === 'income' ? 'var(--success)' : 'var(--danger)', marginBottom: 4 }}>
+                      {tx.type === 'income' ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN')}
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      {new Date(tx.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
                     </div>
                   </div>
-                  <div className="tx-amount" style={{ textAlign: 'right' }}>
-                    <div className="amt" style={{ fontSize: '1.1rem', fontWeight: 800, color: tx.type === 'income' ? 'var(--success)' : 'var(--danger)' }}>
-                      {tx.type === 'income' ? '+' : '-'}₹{tx.amount.toFixed(2)}
-                    </div>
-                    <div className="via" style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 700, textTransform: 'uppercase' }}>{tx.via}</div>
-                  </div>
-                  <button onClick={() => deleteTransaction(tx.id)} className="icon-btn" style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/>
-                    </svg>
-                  </button>
                 </div>
               );
             })}

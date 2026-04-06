@@ -31,6 +31,7 @@ export default function RemindersPage() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'upcoming' | 'done' | 'all'>('all'); // Default to 'all' to show everything
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ 
     title: '', 
@@ -106,11 +107,19 @@ export default function RemindersPage() {
         showBack
         showTheme
         rightContent={
-          <button className="icon-btn" onClick={() => setShowAdd(true)} aria-label="Add reminder" style={{ background: 'var(--accent-grad)', border: 'none', color: '#fff' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="icon-btn" onClick={() => setViewMode(v => v === 'list' ? 'grid' : 'list')} aria-label="Toggle layout">
+              {viewMode === 'list' 
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              }
+            </button>
+            <button className="icon-btn" onClick={() => setShowAdd(true)} aria-label="Add reminder" style={{ background: 'var(--accent-grad)', border: 'none', color: '#fff' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
         }
       />
 
@@ -153,37 +162,79 @@ export default function RemindersPage() {
             <button className="btn btn-primary" style={{ width: 'auto', padding: '12px 32px', marginTop: 12 }} onClick={() => setShowAdd(true)}>Create Reminder</button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(160px, 1fr))' : '1fr', 
+            gap: 12 
+          }}>
             {displayed.map(r => {
               const { date, time, isOverdue } = formatReminderTime(r.remind_at);
-              return (
-                <div key={r.id} className={`card ${r.is_done ? 'done' : ''}`} style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 16, background: r.is_done ? 'var(--bg-card)' : 'var(--bg-secondary)', border: r.is_done ? '1px solid var(--border)' : '1px solid var(--border-active)' }}>
-                  <div className="reminder-icon" style={{ background: r.is_done ? 'var(--accent-dim)' : 'var(--accent-grad)', width: 48, height: 48, borderRadius: 'var(--radius-md)', color: '#fff', fontSize: '1.4rem' }}>
-                    <span>{CAT_EMOJIS[r.category] || '📌'}</span>
-                  </div>
-                  <div className="reminder-body" style={{ flex: 1 }}>
-                    <div className="reminder-title" style={{ fontSize: '1rem', fontWeight: 700, color: r.is_done ? 'var(--text-muted)' : 'var(--text-primary)' }}>{r.title}</div>
-                    <div className="reminder-meta-row" style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
-                      <div className="reminder-date" style={{ color: !r.is_done && isOverdue ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        {date}
-                      </div>
-                      <div className="reminder-time" style={{ color: 'var(--accent-light)', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        {time}
+              
+              if (viewMode === 'list') {
+                return (
+                  <div key={r.id} className={`card ${r.is_done ? 'done' : ''}`} style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 16, background: r.is_done ? 'var(--bg-card)' : 'var(--bg-secondary)', border: r.is_done ? '1px solid var(--border)' : '1px solid var(--border-active)' }}>
+                    <div className="reminder-icon" style={{ background: r.is_done ? 'var(--accent-dim)' : 'var(--accent-grad)', width: 48, height: 48, borderRadius: 'var(--radius-md)', color: '#fff', fontSize: '1.4rem' }}>
+                      <span>{CAT_EMOJIS[r.category] || '📌'}</span>
+                    </div>
+                    <div className="reminder-body" style={{ flex: 1 }}>
+                      <div className="reminder-title" style={{ fontSize: '1rem', fontWeight: 700, color: r.is_done ? 'var(--text-muted)' : 'var(--text-primary)' }}>{r.title}</div>
+                      <div className="reminder-meta-row" style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
+                        <div className="reminder-date" style={{ color: !r.is_done && isOverdue ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                          {date}
+                        </div>
+                        <div className="reminder-time" style={{ color: 'var(--accent-light)', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          {time}
+                        </div>
                       </div>
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        onClick={() => toggleDone(r)}
+                        style={{ background: r.is_done ? 'var(--accent-dim)' : 'var(--bg-input)', border: 'none', borderRadius: 'var(--radius-sm)', color: r.is_done ? 'var(--success)' : 'var(--accent-light)', cursor: 'pointer', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 800 }}>
+                        {r.is_done ? 'DONE' : 'DO IT'}
+                      </button>
+                      <button onClick={() => deleteReminder(r.id)} className="icon-btn" style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)' }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                );
+              }
+
+              // GRID VIEW
+              return (
+                <div key={r.id} className={`card ${r.is_done ? 'done' : ''}`} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, background: r.is_done ? 'var(--bg-card)' : 'var(--bg-secondary)', border: r.is_done ? '1px solid var(--border)' : '1px solid var(--border-active)', minHeight: 180, position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '1.6rem' }}>{CAT_EMOJIS[r.category] || '📌'}</div>
+                    <button onClick={() => deleteReminder(r.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                    </button>
+                  </div>
+                  
+                  <div style={{ flex: 1 }}>
+                    <div className="reminder-title" style={{ fontSize: '0.95rem', fontWeight: 700, color: r.is_done ? 'var(--text-muted)' : 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.title}</div>
+                  </div>
+
+                  <div style={{ marginTop: 'auto' }}>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                       <div style={{ color: !r.is_done && isOverdue ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                          {date}
+                        </div>
+                        <div style={{ color: 'var(--accent-light)', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          {time}
+                        </div>
+                    </div>
+                    
                     <button
                       onClick={() => toggleDone(r)}
-                      style={{ background: r.is_done ? 'var(--accent-dim)' : 'var(--bg-input)', border: 'none', borderRadius: 'var(--radius-sm)', color: r.is_done ? 'var(--success)' : 'var(--accent-light)', cursor: 'pointer', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 800 }}>
-                      {r.is_done ? 'DONE' : 'DO IT'}
-                    </button>
-                    <button onClick={() => deleteReminder(r.id)} className="icon-btn" style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)' }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/>
-                      </svg>
+                      style={{ width: '100%', background: r.is_done ? 'var(--accent-dim)' : 'var(--accent-grad)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', cursor: 'pointer', padding: '8px 0', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      {r.is_done ? 'Completed' : 'Do It Now'}
                     </button>
                   </div>
                 </div>

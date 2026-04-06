@@ -33,6 +33,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | TaskStatus>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ 
     title: '', 
@@ -104,11 +105,19 @@ export default function TasksPage() {
         showBack
         showTheme
         rightContent={
-          <button className="icon-btn" onClick={() => setShowAdd(true)} aria-label="Add task" style={{ background: 'var(--accent-grad)', border: 'none', color: '#fff' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="icon-btn" onClick={() => setViewMode(v => v === 'list' ? 'grid' : 'list')} aria-label="Toggle layout">
+              {viewMode === 'list' 
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              }
+            </button>
+            <button className="icon-btn" onClick={() => setShowAdd(true)} aria-label="Add task" style={{ background: 'var(--accent-grad)', border: 'none', color: '#fff' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
         }
       />
 
@@ -153,50 +162,86 @@ export default function TasksPage() {
             <button className="btn btn-primary" style={{ width: 'auto', padding: '12px 32px', marginTop: 12 }} onClick={() => setShowAdd(true)}>Create Task</button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(160px, 1fr))' : '1fr', 
+            gap: 12 
+          }}>
             {displayed.map(task => {
               const due = formatDue(task.due_date);
               const isDone = (task.status ?? 'todo') === 'done';
-              return (
-                <div key={task.id} className={`card ${isDone ? 'done' : ''}`} style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 16, background: isDone ? 'var(--bg-card)' : 'var(--bg-secondary)', border: isDone ? '1px solid var(--border)' : '1px solid var(--border-active)' }}>
-                  <button className={`task-check ${isDone ? 'checked' : ''}`} onClick={() => toggleStatus(task)} aria-label="Toggle complete">
-                    {isDone && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </button>
-                  <div className="task-body" style={{ flex: 1 }}>
-                    <div className="task-title" style={{ fontSize: '1rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)' }}>{task.title}</div>
-                    {task.description && <div className="task-desc" style={{ fontSize: '0.8rem', opacity: 0.7 }}>{task.description}</div>}
-                    <div className="task-meta" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span className={`priority-badge ${task.priority ?? 'medium'}`} style={{ borderRadius: 6, fontSize: '0.62rem' }}>{task.priority ?? 'medium'}</span>
-                      <span className={`status-badge ${task.status ?? 'todo'}`} style={{ borderRadius: 6, fontSize: '0.62rem' }}>{(task.status ?? 'todo').replace('_', ' ')}</span>
-                      {due && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-                          <span style={{ color: due.overdue ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            {due.date}
-                          </span>
-                          {due.time && (
-                            <span style={{ color: 'var(--accent-light)', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                              {due.time}
-                            </span>
-                          )}
+              
+              if (viewMode === 'list') {
+                return (
+                  <div key={task.id} className={`card ${isDone ? 'done' : ''}`} style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 16, background: isDone ? 'var(--bg-card)' : 'var(--bg-secondary)', border: isDone ? '1px solid var(--border)' : '1px solid var(--border-active)' }}>
+                    <button className={`task-check ${isDone ? 'checked' : ''}`} onClick={() => toggleStatus(task)} aria-label="Toggle complete">
+                      {isDone && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+                    <div className="task-body" style={{ flex: 1 }}>
+                      <div className="task-title" style={{ fontSize: '1rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)' }}>{task.title}</div>
+                      
+                      {task.description && (
+                        <div className="task-notes-block" style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--accent-light)' }}>
+                          <div style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--accent-light)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Notes</div>
+                          <div className="task-desc" style={{ fontSize: '0.85rem', color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', lineHeight: 1.4 }}>{task.description}</div>
                         </div>
                       )}
+                      <div className="task-meta" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span className={`priority-badge ${task.priority ?? 'medium'}`} style={{ borderRadius: 6, fontSize: '0.62rem' }}>{task.priority ?? 'medium'}</span>
+                        <span className={`status-badge ${task.status ?? 'todo'}`} style={{ borderRadius: 6, fontSize: '0.62rem' }}>{(task.status ?? 'todo').replace('_', ' ')}</span>
+                        {due && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+                            <span style={{ color: due.overdue ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                              {due.date}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    <button onClick={() => deleteTask(task.id)} className="icon-btn" style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)' }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    </button>
                   </div>
-                  <button
-                    onClick={() => deleteTask(task.id)}
-                    className="icon-btn"
-                    style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)' }}
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-                    </svg>
-                  </button>
+                );
+              }
+
+              // GRID VIEW
+              return (
+                <div key={task.id} className={`card ${isDone ? 'done' : ''}`} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, background: isDone ? 'var(--bg-card)' : 'var(--bg-secondary)', border: isDone ? '1px solid var(--border)' : '1px solid var(--border-active)', minHeight: 180, position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <button className={`task-check ${isDone ? 'checked' : ''}`} onClick={() => toggleStatus(task)} aria-label="Toggle complete">
+                      {isDone && (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+                    <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                    </button>
+                  </div>
+                  
+                  <div style={{ flex: 1 }}>
+                    <div className="task-title" style={{ fontSize: '0.95rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{task.title}</div>
+                    {task.description && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{task.description}</div>}
+                  </div>
+
+                  <div style={{ marginTop: 'auto' }}>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <span className={`priority-badge ${task.priority ?? 'medium'}`} style={{ borderRadius: 4, fontSize: '0.55rem', padding: '2px 6px' }}>{task.priority ?? 'medium'}</span>
+                    </div>
+                    {due && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--accent-light)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        {due.date} {due.time}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -217,7 +262,8 @@ export default function TasksPage() {
               </div>
               
               <div className="form-group">
-                <textarea className="textarea" placeholder="Add some details (optional)..." value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} />
+                <label className="form-label">Task Notes</label>
+                <textarea className="textarea" placeholder="Add your special notes here... (optional)" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', fontSize: '0.9rem' }} />
               </div>
 
               <div>
