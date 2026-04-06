@@ -28,11 +28,14 @@ export default function TasksPage() {
     title: '', 
     description: '', 
     priority: 'medium' as Priority, 
-    date: new Date().toISOString().split('T')[0],
+    date: selectedDate,
     time: '09:00'
   });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+
+  // Sync form date with selected date
+  useEffect(() => {
+    setForm(prev => ({ ...prev, date: selectedDate }));
+  }, [selectedDate]);
 
   // Date strip logic
   const dateStrip = useMemo(() => {
@@ -129,7 +132,7 @@ export default function TasksPage() {
             </button>
             <button 
                 onClick={() => setShowAdd(true)} 
-                style={{ width: 40, height: 40, borderRadius: '14px', background: 'var(--accent-grad)', border: 'none', color: '#fff', fontSize: '1.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px var(--accent-glow)' }}>
+                style={{ width: 40, height: 40, borderRadius: '14px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: 'none', color: '#fff', fontSize: '1.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)' }}>
                 +
             </button>
           </div>
@@ -139,30 +142,30 @@ export default function TasksPage() {
       <div className="page-content" style={{ padding: '0px' }}>
         {/* Full Calendar Overlay Style Dropdown */}
         {showCalendar && (
-          <div style={{ padding: '24px 20px 32px', background: 'linear-gradient(180deg, rgba(165,106,189,0.1) 0%, transparent 100%)', animation: 'slideDown 0.3s ease-out' }}>
-             <div className="card" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '32px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+          <div style={{ padding: '24px 20px 32px', background: 'linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, transparent 100%)', animation: 'slideDown 0.3s ease-out' }}>
+             <div className="card" style={{ background: '#1e1b4b', borderRadius: '32px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(99,102,241,0.2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                    <div>
-                      <h3 style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{viewDate.toLocaleString('en-US', { month: 'long' })}</h3>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{viewDate.getFullYear()}</div>
+                      <h3 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#f5f3ff', margin: 0 }}>{viewDate.toLocaleString('en-US', { month: 'long' })}</h3>
+                      <div style={{ fontSize: '0.8rem', color: '#c7d2fe', fontWeight: 600 }}>{viewDate.getFullYear()}</div>
                    </div>
                    <div style={{ display: 'flex', gap: 12 }}>
-                      <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth()-1))} style={{ width: 40, height: 40, borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', fontSize: '1rem' }}>❮</button>
-                      <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth()+1))} style={{ width: 40, height: 40, borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', fontSize: '1rem' }}>❯</button>
+                      <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth()-1))} style={{ width: 40, height: 40, borderRadius: '12px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: '1rem' }}>❮</button>
+                      <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth()+1))} style={{ width: 40, height: 40, borderRadius: '12px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: '1rem' }}>❯</button>
                    </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center' }}>
-                   {['S','M','T','W','T','F','S'].map((d, i) => <div key={i} style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: 16 }}>{d}</div>)}
+                   {['S','M','T','W','T','F','S'].map((d, i) => <div key={i} style={{ fontSize: '0.7rem', fontWeight: 900, color: '#a5b4fc', marginBottom: 16 }}>{d}</div>)}
                    {calendarDays.map((d, i) => {
                       if (!d) return <div key={i} />;
                       const isToday = new Date().toISOString().split('T')[0] === d.date;
                       const isSelected = selectedDate === d.date;
                       const hasTasks = tasks.some(t => t.due_date?.startsWith(d.date) || t.created_at.startsWith(d.date));
                       return (
-                          <div key={i} onClick={() => { setSelectedDate(d.date); setShowCalendar(false); }} style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '14px', background: isSelected ? 'var(--accent-grad)' : (isToday ? 'rgba(165,106,189,0.1)' : 'transparent'), color: isSelected ? '#fff' : (isToday ? 'var(--accent-light)' : 'var(--text-primary)'), fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative' }}>
+                          <div key={i} onClick={() => { setSelectedDate(d.date); setShowCalendar(false); }} style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '14px', background: isSelected ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : (isToday ? 'rgba(99,102,241,0.2)' : 'transparent'), color: isSelected ? '#fff' : (isToday ? '#c7d2fe' : '#f5f3ff'), fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative' }}>
                              {d.num}
-                             {hasTasks && !isSelected && <div style={{ position: 'absolute', bottom: 6, width: 4, height: 4, borderRadius: '50%', background: 'var(--accent-light)' }} />}
+                             {hasTasks && !isSelected && <div style={{ position: 'absolute', bottom: 6, width: 4, height: 4, borderRadius: '50%', background: '#818cf8' }} />}
                           </div>
                       );
                    })}

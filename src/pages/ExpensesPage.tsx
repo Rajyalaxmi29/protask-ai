@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
-import { supabase } from '../lib/supabase';
 import { persistentData } from '../lib/persistentData';
 import type { Transaction } from '../lib/supabase';
 
@@ -12,12 +11,14 @@ const CATEGORY_ICONS: Record<string, string> = {
   Freelance:'💻', Investment:'📈', Gift:'🎁', Travel:'✈️',
   Education:'📚', Other:'📋',
 };
+
 const CATEGORY_COLORS: Record<string, string> = {
   Food:'#f97316', Transport:'#3b82f6', Shopping:'#ec4899', Entertainment:'#8b5cf6',
   Health:'#22c55e', Utilities:'#f59e0b', Rent:'#14b8a6', Salary:'#2563eb',
   Freelance:'#6366f1', Investment:'#10b981', Gift:'#e879f9', Travel:'#06b6d4',
   Education:'#84cc16', Other:'#94a3b8',
 };
+
 const EXPENSE_CATS = ['Food','Transport','Shopping','Entertainment','Health','Utilities','Rent','Travel','Education','Other'];
 const INCOME_CATS  = ['Salary','Freelance','Investment','Gift','Other'];
 const PAYMENT_METHODS = ['Card','Cash','Bank Transfer','Google Pay','PayPal','Other'];
@@ -27,19 +28,16 @@ export default function ExpensesPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'expense' | 'income'>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showAdd, setShowAdd] = useState(false);
   const [addType, setAddType] = useState<'expense' | 'income'>('expense');
   const [form, setForm] = useState({ title: '', amount: '', category: 'Food', via: 'Card', date: new Date().toISOString().split('T')[0], note: '' });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
   async function load() {
     const userId = await persistentData.getUserId();
     if (!userId) { setLoading(false); return; }
     const data = await persistentData.get<Transaction>('transactions', userId, 'date');
-    const sorted = data.sort((a,b) => b.date.localeCompare(a.date));
-    setTransactions(sorted);
+    setTransactions(data.sort((a,b) => b.date.localeCompare(a.date)));
     setLoading(false);
   }
 
@@ -47,8 +45,7 @@ export default function ExpensesPage() {
     load(); 
     const draft = localStorage.getItem('protask_expense_draft');
     if (draft) {
-      const d = JSON.parse(draft);
-      setForm(prev => ({ ...prev, ...d }));
+      try { setForm(prev => ({ ...prev, ...JSON.parse(draft) })); } catch(e) {}
     }
   }, []);
 
@@ -58,248 +55,157 @@ export default function ExpensesPage() {
     }
   }, [form]);
 
-  const displayed = filter === 'all' ? transactions : transactions.filter(t => t.type === filter);
-  const totalIncome  = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const balance = totalIncome - totalExpense;
+  const stats = useMemo(() => {
+    const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const expense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    return { income, expense, balance: income - expense };
+  }, [transactions]);
 
-  const deleteTransaction = async (id: string) => {
-    await persistentData.mutate('transactions', 'DELETE', { id });
-    setTransactions(prev => prev.filter(t => t.id !== id));
-  };
+  const displayed = filter === 'all' ? transactions : transactions.filter(t => t.type === filter);
 
   const addTransaction = async () => {
-    if (!form.title || !form.amount || parseFloat(form.amount) <= 0) { setError('Valid title and amount required.'); return; }
+    if (!form.title || !form.amount || parseFloat(form.amount) <= 0) return;
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const userId = await persistentData.getUserId();
     const newTx = {
-      user_id: user!.id,
-      type: addType,
-      title: form.title,
-      amount: parseFloat(form.amount),
-      category: form.category,
-      date: form.date,
-      via: form.via,
-      note: form.note || null,
+      user_id: userId, type: addType, title: form.title, amount: parseFloat(form.amount),
+      category: form.category, date: form.date, via: form.via, note: form.note || null,
       created_at: new Date().toISOString()
     };
-
     const saved = await persistentData.mutate('transactions', 'INSERT', newTx);
     setTransactions(prev => [saved as Transaction, ...prev].sort((a,b) => b.date.localeCompare(a.date)));
     setForm({ title: '', amount: '', category: 'Food', via: 'Card', date: new Date().toISOString().split('T')[0], note: '' });
     localStorage.removeItem('protask_expense_draft');
     setShowAdd(false);
     setSaving(false);
-    setError('');
   };
 
   return (
-    <div className="page">
-      <AppHeader
-        title="Finance"
-        showBack
-        showTheme
+    <div className="page" style={{ background: 'var(--bg-primary)', overflowX: 'hidden' }}>
+      <AppHeader 
+        title="Finance" 
         rightContent={
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button 
-                className="icon-btn" 
-                onClick={() => setViewMode(v => v === 'list' ? 'grid' : 'list')} 
-                style={{ width: 40, height: 40, borderRadius: '14px', background: '#fff' }}>
-                {viewMode === 'list' 
-                  ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                  : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                }
-            </button>
-            <button 
-                className="icon-btn" 
-                onClick={() => setShowAdd(true)} 
-                style={{ width: 40, height: 40, borderRadius: '14px', background: 'var(--accent-grad)', border: 'none', color: '#fff', boxShadow: '0 4px 12px var(--accent-glow)' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-            </button>
-          </div>
+          <button 
+           onClick={() => setShowAdd(true)} 
+           style={{ width: 44, height: 44, borderRadius: '16px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff', fontSize: '1.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 15px rgba(16,185,129,0.35)' }}>
+           +
+          </button>
         }
       />
 
-      <div className="page-content">
-        {/* Balance overview glass card - Professional Medium Size */}
-        <div className="glass-card" style={{ background: 'var(--accent-grad)', border: 'none', padding: '18px 16px', marginBottom: 24, boxShadow: 'var(--shadow-blue)', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: -20, left: -20, width: 80, height: 80, background: 'rgba(255,255,255,0.1)', borderRadius: '50%', filter: 'blur(30px)' }} />
-          
-          <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6, fontWeight: 700 }}>Total Balance</div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', gap: 12, marginTop: 18, borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 14 }}>
-            <div>
-              <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Income</div>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>₹{totalIncome.toLocaleString('en-IN')}</div>
-            </div>
-            <div style={{ height: 24, width: 1, background: 'rgba(255,255,255,0.2)', alignSelf: 'center' }} />
-            <div>
-              <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Expense</div>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>₹{totalExpense.toLocaleString('en-IN')}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="tabs" style={{ marginBottom: 24, padding: 4 }}>
-          {(['all', 'expense', 'income'] as const).map(f => (
-            <button key={f} className={`tab-btn ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {/* Transaction list */}
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 'var(--radius-lg)' }} />)}
-          </div>
-        ) : displayed.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state__emoji">💸</div>
-            <div className="empty-state__title">Empty wallet?</div>
-            <div className="empty-state__desc">Track your daily income and expenses here to see where your money goes.</div>
-            <button className="btn btn-primary" style={{ width: 'auto', padding: '12px 32px', marginTop: 12 }} onClick={() => setShowAdd(true)}>Log First Item</button>
-          </div>
-        ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(160px, 1fr))' : '1fr', 
-            gap: 12 
-          }}>
-            {displayed.map(tx => {
-              const color = CATEGORY_COLORS[tx.category] || '#94a3b8';
+      <div className="page-content" style={{ padding: '0px' }}>
+        
+        {/* HERO SECTION: Fintech Bento Wallet Card */}
+        <div style={{ padding: '24px 20px 32px', background: 'linear-gradient(180deg, rgba(16,185,129,0.1) 0%, transparent 100%)' }}>
+           <div className="card" style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '42px', padding: '32px', boxShadow: '0 32px 64px rgba(6,78,59,0.4)', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: 200, height: 200, background: 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%)', filter: 'blur(30px)' }} />
               
-              if (viewMode === 'list') {
-                return (
-                  <div key={tx.id} className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 16, border: '1px solid var(--border)' }}>
-                    <div className="tx-icon" style={{ background: `${color}15`, color: color, width: 48, height: 48, borderRadius: 'var(--radius-md)', fontSize: '1.4rem' }}>
-                      <span>{CATEGORY_ICONS[tx.category] || '📋'}</span>
-                    </div>
-                    <div className="tx-info" style={{ flex: 1, minWidth: 0 }}>
-                      <div className="tx-title" style={{ fontSize: '1rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tx.title}</div>
-                      <div className="tx-details" style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div className="tx-date" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, color: 'var(--accent-light)' }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                          {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </div>
-                        <div className="tx-category" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: 18 }}>
-                          {tx.category}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="tx-amount" style={{ textAlign: 'right' }}>
-                      <div className="amt" style={{ fontSize: '1.1rem', fontWeight: 800, color: tx.type === 'income' ? 'var(--success)' : 'var(--danger)' }}>
-                        {tx.type === 'income' ? '+' : '-'}₹{tx.amount.toFixed(2)}
-                      </div>
-                      <div className="via" style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 700, textTransform: 'uppercase' }}>{tx.via}</div>
-                    </div>
-                    <button onClick={() => deleteTransaction(tx.id)} className="icon-btn" style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-                      </svg>
-                    </button>
-                  </div>
-                );
-              }
+              <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 8 }}>Total Balance</div>
+              <div style={{ fontSize: '3rem', fontWeight: 900, color: '#fff', letterSpacing: '-1.5px', marginBottom: 32 }}>₹{stats.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, padding: '24px 0 0', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                 <div>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Income</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#10b981' }}>+₹{stats.income.toLocaleString('en-IN')}</div>
+                 </div>
+                 <div>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Expenses</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fb7185' }}>-₹{stats.expense.toLocaleString('en-IN')}</div>
+                 </div>
+              </div>
+           </div>
+        </div>
 
-              // GRID VIEW
-              return (
-                <div key={tx.id} className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--border)', minHeight: 180, position: 'relative' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '1.6rem' }}>{CATEGORY_ICONS[tx.category] || '📋'}</div>
-                    <button onClick={() => deleteTransaction(tx.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
-                    </button>
-                  </div>
-                  
-                  <div style={{ flex: 1 }}>
-                    <div className="tx-title" style={{ fontSize: '0.95rem', fontWeight: 700, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{tx.title}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4 }}>{tx.category} · {tx.via}</div>
-                  </div>
+        {/* LIST SECTION: Fintech Glass List */}
+        <div style={{ background: 'var(--bg-secondary)', borderTopLeftRadius: '48px', borderTopRightRadius: '48px', minHeight: '600px', padding: '40px 24px', boxShadow: '0 -20px 40px rgba(0,0,0,0.1)' }}>
+            
+            <div style={{ display: 'flex', gap: 12, marginBottom: 32, overflowX: 'auto', scrollbarWidth: 'none' }} className="chips">
+               {(['all', 'expense', 'income'] as const).map(f => (
+                 <button key={f} onClick={() => setFilter(f)} style={{ padding: '12px 24px', borderRadius: '18px', background: filter === f ? 'var(--text-primary)' : 'rgba(255,255,255,0.05)', color: filter === f ? 'var(--bg-primary)' : 'var(--text-secondary)', border: 'none', fontSize: '0.9rem', fontWeight: 900, transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                 </button>
+               ))}
+            </div>
 
-                  <div style={{ marginTop: 'auto' }}>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 900, color: tx.type === 'income' ? 'var(--success)' : 'var(--danger)', marginBottom: 4 }}>
-                      {tx.type === 'income' ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN')}
+            {loading ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>Loading Wealth...</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                 {displayed.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '80px 0' }}>
+                       <div style={{ fontSize: '4rem', marginBottom: 24, filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.2))' }}>🏦</div>
+                       <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)' }}>Start Tracking</div>
+                       <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: 8 }}>Every rupee counts on your journey.</div>
                     </div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                      {new Date(tx.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                 ) : (
+                    displayed.map(tx => (
+                      <div key={tx.id} className="tx-card" style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '28px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 20 }}>
+                         <div style={{ width: 56, height: 56, borderRadius: '20px', background: `${CATEGORY_COLORS[tx.category] || '#94a3b8'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', boxShadow: `0 8px 16px ${CATEGORY_COLORS[tx.category] || '#94a3b8'}10` }}>
+                            {CATEGORY_ICONS[tx.category] || '📋'}
+                         </div>
+                         <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '1.05rem', fontWeight: 850, color: 'var(--text-primary)', letterSpacing: '-0.3px', marginBottom: 2 }}>{tx.title}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700 }}>{new Date(tx.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} • {tx.via}</div>
+                         </div>
+                         <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: tx.type === 'income' ? '#10b981' : '#fb7185' }}>
+                               {tx.type === 'income' ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN')}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tx.category}</div>
+                         </div>
+                      </div>
+                    ))
+                 )}
+              </div>
+            )}
+        </div>
       </div>
 
-      {/* Add Transaction sheet */}
+      <BottomNav />
+
+      {/* Add Modal */}
       {showAdd && (
         <div className="overlay" onClick={() => setShowAdd(false)}>
-          <div className="sheet" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-primary)', borderTop: '2px solid var(--accent-light)' }}>
-            <div className="sheet-handle" style={{ background: 'var(--accent-dim)', width: 40, height: 4 }} />
-            <div className="sheet-title" style={{ fontSize: '1.4rem', textAlign: 'center', marginBottom: 24 }}>Log Transaction</div>
-            
-            <div className="tabs" style={{ marginBottom: 24, padding: 4 }}>
-              {(['expense', 'income'] as const).map(t => (
-                <button key={t} className={`tab-btn ${addType === t ? 'active' : ''}`} onClick={() => { setAddType(t); setForm(f => ({ ...f, category: t === 'expense' ? 'Food' : 'Salary' })); }}>
-                  {t === 'expense' ? '💸 Expense' : '💰 Income'}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div className="form-group">
-                <div className="input-icon-wrap">
-                  <span className="input-prefix-icon" style={{ fontSize: '1.2rem', fontWeight: 800, color: addType === 'income' ? 'var(--success)' : 'var(--danger)' }}>₹</span>
-                  <input id="tx-amount" type="number" className="input" placeholder="0.00" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={{ fontSize: '1.5rem', fontWeight: 900, padding: '16px 16px 16px 48px' }} />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <input id="tx-title" type="text" className="input" placeholder="What was this for? *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ fontSize: '1.1rem', padding: '16px' }} />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Category</label>
-                  <select className="select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ height: 50 }}>
-                    {(addType === 'expense' ? EXPENSE_CATS : INCOME_CATS).map(c => <option key={c}>{CATEGORY_ICONS[c]} {c}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Method</label>
-                  <select className="select" value={form.via} onChange={e => setForm(f => ({ ...f, via: e.target.value }))} style={{ height: 50 }}>
-                    {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Transaction Date</label>
-                <input type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
-              </div>
-
-              <div className="form-group">
-                <textarea className="textarea" placeholder="Add a note (optional)..." value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={2} />
-              </div>
-
-              {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>{error}</p>}
+           <div className="sheet" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-secondary)', borderRadius: '48px 48px 0 0', padding: '16px 24px 48px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ width: 40, height: 5, background: 'rgba(255,255,255,0.1)', borderRadius: '10px', margin: '0 auto 32px' }} />
               
-              <button id="add-tx-submit" className="btn btn-primary" onClick={addTransaction} disabled={saving} style={{ height: 56, fontSize: '1rem' }}>
-                {saving ? <span className="spinner" /> : `Log ${addType.charAt(0).toUpperCase() + addType.slice(1)}`}
+              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', borderRadius: '24px', padding: '6px', marginBottom: 32 }}>
+                 <button onClick={() => setAddType('expense')} style={{ flex: 1, padding: '12px', borderRadius: '18px', background: addType === 'expense' ? '#fb7185' : 'transparent', color: '#fff', border: 'none', fontWeight: 900, fontSize: '0.95rem' }}>Expense</button>
+                 <button onClick={() => setAddType('income')} style={{ flex: 1, padding: '12px', borderRadius: '18px', background: addType === 'income' ? '#10b981' : 'transparent', color: '#fff', border: 'none', fontWeight: 900, fontSize: '0.95rem' }}>Income</button>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 24 }}>
+                 <input type="text" className="input" placeholder="What was this for? *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ color: 'var(--text-primary)', fontSize: '1.25rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '24px', padding: '20px 24px' }} autoFocus />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 24 }}>
+                 <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-muted)' }}>₹</div>
+                    <input type="number" className="input" placeholder="0.00 *" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={{ color: 'var(--text-primary)', fontSize: '1.8rem', fontWeight: 800, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '24px', padding: '20px 24px 20px 50px' }} />
+                 </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 40 }}>
+                 <div className="form-group">
+                    <label style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 12, display: 'block', fontWeight: 800, textTransform: 'uppercase' }}>Category</label>
+                    <select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ color: 'var(--text-primary)', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', padding: '16px' }}>
+                       {(addType === 'expense' ? EXPENSE_CATS : INCOME_CATS).map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                 </div>
+                 <div className="form-group">
+                    <label style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 12, display: 'block', fontWeight: 800, textTransform: 'uppercase' }}>Method</label>
+                    <select className="input" value={form.via} onChange={e => setForm(f => ({ ...f, via: e.target.value }))} style={{ color: 'var(--text-primary)', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', padding: '16px' }}>
+                       {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                 </div>
+              </div>
+
+              <button className="btn btn-primary" onClick={addTransaction} disabled={saving} style={{ height: 68, borderRadius: '28px', fontSize: '1.2rem', fontWeight: 900, background: addType === 'income' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #fb7185 0%, #e11d48 100%)', boxShadow: addType === 'income' ? '0 12px 24px rgba(16,185,129,0.3)' : '0 12px 24px rgba(251,113,133,0.3)' }}>
+                {saving ? 'Processing...' : `Save ${addType.charAt(0).toUpperCase() + addType.slice(1)}`}
               </button>
-            </div>
-          </div>
+           </div>
         </div>
       )}
-
-      <BottomNav />
     </div>
   );
 }
