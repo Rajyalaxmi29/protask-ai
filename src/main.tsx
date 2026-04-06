@@ -8,11 +8,19 @@ const savedTheme = localStorage.getItem('protask_theme') || 'dark';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
 // FORCE UNREGISTER Service Worker in development to allow instant mobile updates
+// AGGRESSIVE MOBILE CACHE CLEARING
+// Forces all service workers and caches to reset to ensure mobile browsers see live updates instantly.
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(registrations => {
     for (let registration of registrations) {
-      registration.unregister();
-      console.log('SW Unregistered for Live Development');
+      registration.unregister().then(() => {
+        console.log('SW Unregistered Success');
+        if ('caches' in window) {
+           caches.keys().then(names => {
+             for (let name of names) caches.delete(name);
+           });
+        }
+      });
     }
   });
 }
