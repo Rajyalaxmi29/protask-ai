@@ -26,7 +26,12 @@ export default function AppHeader({ title, showLogo, forceDesktopLogo, showBack,
           </button>
         )}
         {showLogo && <div className={forceDesktopLogo ? "" : "mobile-only-logo"}><AppLogo size={32} showText /></div>}
-        {title && <span className="header-title">{title}</span>}
+        {title && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="header-title">{title}</span>
+            <span style={{ fontSize: '0.65rem', padding: '2px 6px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', color: 'var(--text-muted)', fontWeight: 700, opacity: 0.5 }}>v53.1</span>
+          </div>
+        )}
       </div>
       <div className="header-actions">
         {rightContent}
