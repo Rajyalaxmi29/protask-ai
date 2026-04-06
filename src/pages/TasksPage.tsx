@@ -28,14 +28,11 @@ export default function TasksPage() {
     title: '', 
     description: '', 
     priority: 'medium' as Priority, 
-    date: selectedDate,
+    date: new Date().toISOString().split('T')[0],
     time: '09:00'
   });
-
-  // Sync form date with selected date
-  useEffect(() => {
-    setForm(prev => ({ ...prev, date: selectedDate }));
-  }, [selectedDate]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   // Date strip logic
   const dateStrip = useMemo(() => {
@@ -77,20 +74,7 @@ export default function TasksPage() {
     setLoading(false);
   }
 
-  useEffect(() => { 
-    load(); 
-    const draft = localStorage.getItem('protask_task_draft');
-    if (draft) {
-      const d = JSON.parse(draft);
-      setForm(prev => ({ ...prev, ...d }));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (form.title || form.description) {
-      localStorage.setItem('protask_task_draft', JSON.stringify(form));
-    }
-  }, [form]);
+  useEffect(() => { load(); }, []);
 
   const displayed = useMemo(() => {
     const dayTasks = tasks.filter(t => t.due_date?.startsWith(selectedDate) || t.created_at.startsWith(selectedDate));
@@ -105,8 +89,6 @@ export default function TasksPage() {
     const newTask = { user_id: userId, title: form.title.trim(), description: form.description || null, priority: form.priority, status: 'todo', due_date: dateTime, created_at: new Date().toISOString() };
     const saved = await persistentData.mutate('tasks', 'INSERT', newTask);
     setTasks(prev => [saved as Task, ...prev]);
-    setForm({ title: '', description: '', priority: 'medium', date: new Date().toISOString().split('T')[0], time: '09:00' });
-    localStorage.removeItem('protask_task_draft');
     setShowAdd(false);
     setSaving(false);
   };
@@ -132,7 +114,7 @@ export default function TasksPage() {
             </button>
             <button 
                 onClick={() => setShowAdd(true)} 
-                style={{ width: 40, height: 40, borderRadius: '14px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: 'none', color: '#fff', fontSize: '1.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)' }}>
+                style={{ width: 40, height: 40, borderRadius: '14px', background: 'var(--accent-grad)', border: 'none', color: '#fff', fontSize: '1.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px var(--accent-glow)' }}>
                 +
             </button>
           </div>
@@ -142,34 +124,21 @@ export default function TasksPage() {
       <div className="page-content" style={{ padding: '0px' }}>
         {/* Full Calendar Overlay Style Dropdown */}
         {showCalendar && (
-          <div style={{ padding: '24px 20px 32px', background: 'linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, transparent 100%)', animation: 'slideDown 0.3s ease-out' }}>
-             <div className="card" style={{ background: '#1e1b4b', borderRadius: '32px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                   <div>
-                      <h3 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#f5f3ff', margin: 0 }}>{viewDate.toLocaleString('en-US', { month: 'long' })}</h3>
-                      <div style={{ fontSize: '0.8rem', color: '#c7d2fe', fontWeight: 600 }}>{viewDate.getFullYear()}</div>
-                   </div>
-                   <div style={{ display: 'flex', gap: 12 }}>
-                      <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth()-1))} style={{ width: 40, height: 40, borderRadius: '12px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: '1rem' }}>❮</button>
-                      <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth()+1))} style={{ width: 40, height: 40, borderRadius: '12px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: '1rem' }}>❯</button>
-                   </div>
+          <div style={{ padding: '24px', background: '#FFF', borderBottom: '1px solid #EEE', animation: 'slideDown 0.3s ease-out' }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900 }}>{viewDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</h3>
+                <div style={{ display: 'flex', gap: 16 }}>
+                   <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1))} style={{ background: 'none', border: 'none', fontSize: '1rem', color: '#AAA' }}>❮</button>
+                   <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1))} style={{ background: 'none', border: 'none', fontSize: '1rem', color: '#AAA' }}>❯</button>
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center' }}>
-                   {['S','M','T','W','T','F','S'].map((d, i) => <div key={i} style={{ fontSize: '0.7rem', fontWeight: 900, color: '#a5b4fc', marginBottom: 16 }}>{d}</div>)}
-                   {calendarDays.map((d, i) => {
-                      if (!d) return <div key={i} />;
-                      const isToday = new Date().toISOString().split('T')[0] === d.date;
-                      const isSelected = selectedDate === d.date;
-                      const hasTasks = tasks.some(t => t.due_date?.startsWith(d.date) || t.created_at.startsWith(d.date));
-                      return (
-                          <div key={i} onClick={() => { setSelectedDate(d.date); setShowCalendar(false); }} style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '14px', background: isSelected ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : (isToday ? 'rgba(99,102,241,0.2)' : 'transparent'), color: isSelected ? '#fff' : (isToday ? '#c7d2fe' : '#f5f3ff'), fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative' }}>
-                             {d.num}
-                             {hasTasks && !isSelected && <div style={{ position: 'absolute', bottom: 6, width: 4, height: 4, borderRadius: '50%', background: '#818cf8' }} />}
-                          </div>
-                      );
-                   })}
-                </div>
+             </div>
+             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, textAlign: 'center' }}>
+                {['S','M','T','W','T','F','S'].map(d => <div key={d} style={{ fontSize: '0.75rem', fontWeight: 800, color: '#CCC' }}>{d}</div>)}
+                {calendarDays.map((d, i) => (
+                   <div key={i} onClick={() => { if(d) { setSelectedDate(d.date); setShowCalendar(false); } }} style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 700, background: d?.date === selectedDate ? 'var(--accent-grad)' : 'none', color: d?.date === selectedDate ? '#fff' : '#111', borderRadius: '50%', opacity: d ? 1 : 0, cursor: 'pointer' }}>
+                      {d?.num}
+                   </div>
+                ))}
              </div>
           </div>
         )}
@@ -233,9 +202,9 @@ export default function TasksPage() {
       {/* Add Modal */}
       {showAdd && (
         <div className="overlay" onClick={() => setShowAdd(false)}>
-           <div className="sheet" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-secondary)', borderRadius: '32px 32px 0 0', padding: '32px 24px' }}>
+           <div className="sheet" onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: '32px 32px 0 0', padding: '32px 24px' }}>
               <div className="sheet-handle" style={{ background: '#EEE' }} />
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, textAlign: 'center', marginBottom: 24, color: 'var(--text-primary)' }}>New Task</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, textAlign: 'center', marginBottom: 24 }}>New Task</h2>
               <div className="form-group"><input type="text" className="input" placeholder="Task title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus /></div>
               <div className="form-group" style={{ marginTop: 20 }}><label className="form-label">Task Group / Description</label><input type="text" className="input" placeholder="e.g. Design Sprint" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 20 }}>

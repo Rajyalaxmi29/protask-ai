@@ -29,7 +29,7 @@ export default function AppHeader({ title, showLogo, forceDesktopLogo, showBack,
         {title && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="header-title">{title}</span>
-            <span style={{ fontSize: '0.65rem', padding: '2px 6px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', color: 'var(--text-muted)', fontWeight: 700, opacity: 0.5 }}>v53.1</span>
+            <span style={{ fontSize: '0.6rem', background: 'rgba(255,255,255,0.05)', padding: '2px 4px', borderRadius: '4px', opacity: 0.5 }}>v54</span>
           </div>
         )}
       </div>
