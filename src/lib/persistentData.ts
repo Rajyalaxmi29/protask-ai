@@ -31,7 +31,9 @@ class PersistentData {
   public async get<T>(table: string, userId: string, orderBy: string = 'created_at'): Promise<T[]> {
     const cacheKey = `cache_${table}_${userId}`;
     const isOnline = navigator.onLine;
+    let results: any[] = [];
 
+    // 1. Try to fetch from Supabase if online
     if (isOnline) {
       try {
         const { data, error } = await supabase
@@ -41,24 +43,36 @@ class PersistentData {
           .order(orderBy, { ascending: false });
 
         if (!error && data) {
+          results = data;
           localStorage.setItem(cacheKey, JSON.stringify(data));
-          return data as T[];
+        } else {
+          throw new Error('Supabase fetch failed');
         }
       } catch (e) {
-        console.warn(`Fetch failed for ${table}, falling back to cache`);
+        console.warn(`Fetch failed for ${table}, falling back to cache:`, e);
+        const cached = localStorage.getItem(cacheKey);
+        results = cached ? JSON.parse(cached) : [];
       }
+    } else {
+      // 2. Not online, use cache
+      const cached = localStorage.getItem(cacheKey);
+      results = cached ? JSON.parse(cached) : [];
     }
 
-    // Offline or fetch failed
-    const cached = localStorage.getItem(cacheKey);
-    let results = cached ? JSON.parse(cached) : [];
-
-    // Apply pending local mutations to the results for UI consistency
+    // 3. APPLY PENDING LOCAL MUTATIONS FOR UI CONSISTENCY
+    // This solves the bug where items vanish on refresh because they aren't synced yet.
     const pending = this.getQueue().filter(m => m.table === table);
     pending.forEach(m => {
-      if (m.type === 'INSERT') results = [m.data, ...results];
-      if (m.type === 'UPDATE') results = results.map((r: any) => r.id === m.data.id ? { ...r, ...m.data } : r);
-      if (m.type === 'DELETE') results = results.filter((r: any) => r.id !== m.id);
+      if (m.type === 'INSERT') {
+        // Prevent duplicates if by any chance the item is already in the server result
+        if (!results.find((r: any) => r.id === m.id)) {
+          results = [m.data, ...results];
+        }
+      } else if (m.type === 'UPDATE') {
+        results = results.map((r: any) => r.id === m.data.id ? { ...r, ...m.data } : r);
+      } else if (m.type === 'DELETE') {
+        results = results.filter((r: any) => r.id !== m.id);
+      }
     });
 
     return results as T[];
@@ -66,7 +80,18 @@ class PersistentData {
 
   // --- Write Methods ---
   public async mutate(table: string, type: MutationType, data: any, id?: string) {
-    const mutationId = id || data.id || Math.random().toString(36).substr(2, 9);
+    // Generate a valid UUID v4 (RFC 4122) for Supabase compatibility
+    const generateUUID = () => {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+      // Manual UUID v4 construction as fallback
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    };
+
+    const mutationId = id || data.id || generateUUID();
     const mutation: OfflineMutation = {
       id: mutationId,
       table,
@@ -133,8 +158,20 @@ class PersistentData {
         this.removeFromQueue(m.id);
       } else {
         console.error(`Sync error for ${m.table}:`, error);
-        // If it's a conflict or policy error, we might want to remove it anyway to avoid infinite retries
-        if (error.code === '42501' || error.code === '23505') this.removeFromQueue(m.id);
+        // Supabase error objects might have the code in different places; let's log everything
+        try {
+          const errorMsg = typeof error === 'object' ? JSON.stringify(error) : error;
+          console.error(`Detailed sync failure info: ${errorMsg}`);
+        } catch (e) {}
+
+        // If it's a conflict, policy error, or invalid data, remove it to stop the error loop
+        // 22P02 = Invalid UUID format, 23502 = Not null violation, etc.
+        const isClientError = error.code && (error.code.startsWith('22') || error.code.startsWith('23') || error.code === '42501');
+        
+        if (isClientError || error.status === 400 || (error.message && error.message.includes('invalid input syntax'))) {
+          console.warn(`Removing unfixable item ${m.id} from queue to stop retries.`);
+          this.removeFromQueue(m.id);
+        }
       }
     } catch (e) {
       console.error(`Failed to sync item ${m.id}`, e);

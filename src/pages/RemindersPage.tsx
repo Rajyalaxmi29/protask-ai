@@ -28,7 +28,7 @@ export default function RemindersPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'upcoming' | 'done' | 'all'>('upcoming');
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', remind_at: '', category: 'General' });
+  const [form, setForm] = useState({ title: '', description: '', date: '', time: '', category: 'General' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const now = new Date().toISOString();
@@ -60,16 +60,19 @@ export default function RemindersPage() {
   };
 
   const addReminder = async () => {
-    if (!form.title.trim() || !form.remind_at) { setError('Title and time are required.'); return; }
+    if (!form.title.trim() || !form.date || !form.time) { setError('Title, date, and time are required.'); return; }
     setSaving(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) { setError('Not logged in. Please sign in again.'); setSaving(false); return; }
     
+    // Merge date and time into a single valid ISO string
+    const remindAt = new Date(`${form.date}T${form.time}`).toISOString();
+
     const newRem = {
       user_id: session.user.id,
       title: form.title.trim(),
       description: form.description || null,
-      remind_at: new Date(form.remind_at).toISOString(),
+      remind_at: remindAt,
       category: form.category,
       is_done: false,
       created_at: new Date().toISOString()
@@ -77,7 +80,7 @@ export default function RemindersPage() {
 
     const saved = await persistentData.mutate('reminders', 'INSERT', newRem);
     setReminders(prev => [...prev, saved as Reminder].sort((a, b) => a.remind_at.localeCompare(b.remind_at)));
-    setForm({ title: '', description: '', remind_at: '', category: 'General' });
+    setForm({ title: '', description: '', date: '', time: '', category: 'General' });
     setShowAdd(false);
     setSaving(false);
     setError('');
@@ -189,9 +192,15 @@ export default function RemindersPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <input id="reminder-title" type="text" className="input" placeholder="Reminder title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
               <textarea className="textarea" placeholder="Description (optional)" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} />
-              <div className="form-group">
-                <label className="form-label" htmlFor="reminder-time">Date & Time *</label>
-                <input id="reminder-time" type="datetime-local" className="input" value={form.remind_at} onChange={e => setForm(f => ({ ...f, remind_at: e.target.value }))} />
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label" htmlFor="reminder-date">Date *</label>
+                  <input id="reminder-date" type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label" htmlFor="reminder-time">Time *</label>
+                  <input id="reminder-time" type="time" className="input" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="reminder-category">Category</label>
