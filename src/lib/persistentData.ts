@@ -43,6 +43,10 @@ class PersistentData {
     const cacheKey = `cache_${table}_${userId}`;
     const isOnline = navigator.onLine;
 
+    // Offline or fetch failed
+    const cached = localStorage.getItem(cacheKey);
+    let results = cached ? JSON.parse(cached) : [];
+
     if (isOnline) {
       try {
         const { data, error } = await supabase
@@ -52,24 +56,34 @@ class PersistentData {
           .order(orderBy, { ascending: false });
 
         if (!error && data) {
+          results = data;
           localStorage.setItem(cacheKey, JSON.stringify(data));
-          return data as T[];
         }
       } catch (e) {
         console.warn(`Fetch failed for ${table}, falling back to cache`);
       }
     }
 
-    // Offline or fetch failed
-    const cached = localStorage.getItem(cacheKey);
-    let results = cached ? JSON.parse(cached) : [];
-
     // Apply pending local mutations to the results for UI consistency
+    // This ensures that even if we just fetched from the network, 
+    // items that haven't finished syncing yet are still reflected in the UI.
     const pending = this.getQueue().filter(m => m.table === table);
+    
+    // Create a map for faster lookup of existing IDs
+    const resultsMap = new Map(results.map((r: any) => [r.id, r]));
+
     pending.forEach(m => {
-      if (m.type === 'INSERT') results = [m.data, ...results];
-      if (m.type === 'UPDATE') results = results.map((r: any) => r.id === m.data.id ? { ...r, ...m.data } : r);
-      if (m.type === 'DELETE') results = results.filter((r: any) => r.id !== m.id);
+      if (m.type === 'INSERT') {
+        // Only add if not already in results (to prevent duplicates if sync happened mid-fetch)
+        if (!resultsMap.has(m.id)) {
+          results = [m.data, ...results];
+          resultsMap.set(m.id, m.data);
+        }
+      } else if (m.type === 'UPDATE') {
+        results = results.map((r: any) => r.id === m.id ? { ...r, ...m.data } : r);
+      } else if (m.type === 'DELETE') {
+        results = results.filter((r: any) => r.id !== m.id);
+      }
     });
 
     return results as T[];

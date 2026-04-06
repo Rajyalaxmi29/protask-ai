@@ -120,7 +120,7 @@ export default function DashboardPage() {
         rightContent={
           <div
             onClick={() => navigate('/profile')}
-            style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', color: '#fff', border: '2px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}
+            style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', color: '#fff', border: '3px solid rgba(255,255,255,0.15)', overflow: 'hidden', boxShadow: 'var(--shadow-blue)' }}
           >
             {avatarUrl ? (
               <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -132,96 +132,110 @@ export default function DashboardPage() {
       />
 
       <div className="page-content">
-        {/* Greeting */}
-        <div style={{ marginBottom: 20 }}>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 2 }}>{greeting()},</p>
-          <h2 style={{ fontSize: '1.5rem' }}>{userName} 👋</h2>
+        {/* Greeting Section */}
+        <div style={{ marginBottom: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.02em' }}>{greeting()},</p>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, letterSpacing: '-0.02em' }}>{userName}</h2>
+          </div>
+          <div className="glass-card" style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 10 }}>
+             <span style={{ fontSize: '1.2rem', animation: 'float 3s ease-in-out infinite' }}>🚀</span>
+             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-light)' }}>ACTIVE</span>
+          </div>
         </div>
 
-        {/* Quick stats */}
-        <div style={{ background: 'var(--accent-grad)', borderRadius: 'var(--radius-lg)', padding: '18px', marginBottom: 20, boxShadow: 'var(--shadow-blue)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: -20, right: -20, width: 120, height: 120, background: 'rgba(255,255,255,0.07)', borderRadius: '50%' }} />
-          <div style={{ position: 'absolute', bottom: -30, left: -10, width: 80, height: 80, background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }} />
-          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.78rem', fontWeight: 600, marginBottom: 12 }}>Today's Overview</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        {/* Today's Overview Glass Card */}
+        <div className="glass-card" style={{ background: 'var(--accent-grad)', border: 'none', padding: '24px', marginBottom: 32, boxShadow: 'var(--shadow-blue)', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -30, right: -20, width: 140, height: 140, background: 'rgba(255,255,255,0.12)', borderRadius: '50%', filter: 'blur(30px)' }} />
+          <div style={{ position: 'absolute', bottom: -40, left: -10, width: 100, height: 100, background: 'rgba(255,255,255,0.08)', borderRadius: '50%', filter: 'blur(20px)' }} />
+          
+          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 20 }}>Today's Performance</div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
             {[
-              { label: 'Pending Tasks', val: counts.tasks },
-              { label: 'Reminders Today', val: counts.remindersToday },
-              { label: 'Balance', val: `₹${(counts.income - counts.expense).toFixed(0)}` },
+              { label: 'Tasks', val: counts.tasks, color: '#fff' },
+              { label: 'Reminders', val: counts.remindersToday, color: '#fff' },
+              { label: 'Balance', val: `₹${(counts.income - counts.expense).toFixed(0)}`, color: '#fff' },
             ].map(s => (
-              <div key={s.label} style={{ flex: 1, minWidth: '100px' }}>
-                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{s.val}</div>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.65)', marginTop: 6 }}>{s.label}</div>
+              <div key={s.label}>
+                <div style={{ fontSize: '2.2rem', fontWeight: 900, color: s.color, lineHeight: 1, marginBottom: 8 }}>{s.val}</div>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{s.label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* 4 Feature modules */}
-        <div className="section-header">
-          <span className="section-title">Features</span>
+        {/* Feature Grid */}
+        <div className="section-header" style={{ marginBottom: 16 }}>
+          <span className="section-title" style={{ fontSize: '1.1rem', fontWeight: 900 }}>Ecosystem</span>
         </div>
-        <div className="feature-grid" style={{ marginBottom: 24 }}>
+        <div className="feature-grid" style={{ marginBottom: 32 }}>
           {MODULES.map(m => (
-            <div key={m.title} className="feature-card" onClick={() => navigate(m.path)}>
-              <div className="feature-card__header">
-                <div className="feature-card__icon-wrap" style={{ background: `${m.color}22` }}>
-                  <span style={{ fontSize: '1.3rem' }}>{m.emoji}</span>
+            <div key={m.title} className="glass-card feature-card" onClick={() => navigate(m.path)} style={{ transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', cursor: 'pointer' }}>
+              <div className="feature-card__header" style={{ marginBottom: 16 }}>
+                <div className="feature-card__icon-wrap" style={{ background: `${m.color}15`, color: m.color, width: 44, height: 44 }}>
+                  <span style={{ fontSize: '1.4rem' }}>{m.emoji}</span>
                 </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-muted)' }}>
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
+                <div style={{ background: 'var(--bg-secondary)', padding: '4px 8px', borderRadius: 8, fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)' }}>OPEN</div>
               </div>
               <div>
-                <div className="feature-card__count" style={{ color: m.color }}>{m.count}</div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>{m.title}</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{m.subtitle}</div>
+                <div className="feature-card__count" style={{ color: 'var(--text-primary)', fontSize: '1.3rem', fontWeight: 900 }}>{m.count}</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-muted)', marginTop: 4 }}>{m.title}</div>
+                <div style={{ fontSize: '0.7rem', color: m.color, fontWeight: 700, marginTop: 4 }}>{m.subtitle}</div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Recent Tasks */}
-        {!loading && recentTasks.length > 0 && (
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div className="section-header" style={{ marginBottom: 8 }}>
-              <span className="section-title">Pending Tasks</span>
-              <button className="section-link" onClick={() => navigate('/tasks')}>See all</button>
-            </div>
-            {recentTasks.map(t => (
-              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: (t.priority ?? 'medium') === 'high' ? 'var(--danger)' : (t.priority ?? 'medium') === 'medium' ? 'var(--warning)' : 'var(--success)', flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: '0.88rem', fontWeight: 500 }}>{t.title}</span>
-                {t.due_date && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t.due_date}</span>}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24 }}>
+          {/* Recent Tasks */}
+          {!loading && recentTasks.length > 0 && (
+            <div className="glass-card" style={{ border: '1px solid var(--border)' }}>
+              <div className="section-header" style={{ marginBottom: 16 }}>
+                <span className="section-title" style={{ fontSize: '1rem', fontWeight: 900 }}>Recent Tasks</span>
+                <button className="section-link" onClick={() => navigate('/tasks')} style={{ color: 'var(--accent-light)', fontWeight: 800 }}>Explore</button>
               </div>
-            ))}
-          </div>
-        )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {recentTasks.map(t => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: (t.priority ?? 'medium') === 'high' ? 'var(--danger)' : (t.priority ?? 'medium') === 'medium' ? 'var(--warning)' : 'var(--success)', boxShadow: `0 0 10px ${(t.priority ?? 'medium') === 'high' ? 'var(--danger)' : (t.priority ?? 'medium') === 'medium' ? 'var(--warning)' : 'var(--success)'}55` }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{t.title}</div>
+                      {t.due_date && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>Deadline: {t.due_date}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-        {/* Upcoming Reminders */}
-        {!loading && upcomingReminders.length > 0 && (
-          <div className="card">
-            <div className="section-header" style={{ marginBottom: 8 }}>
-              <span className="section-title">Upcoming Reminders</span>
-              <button className="section-link" onClick={() => navigate('/reminders')}>See all</button>
-            </div>
-            {upcomingReminders.map(r => (
-              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '1.2rem' }}>🔔</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 500 }}>{r.title}</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{new Date(r.remind_at).toLocaleString()}</div>
-                </div>
+          {/* Upcoming Reminders */}
+          {!loading && upcomingReminders.length > 0 && (
+            <div className="glass-card" style={{ border: '1px solid var(--border)' }}>
+              <div className="section-header" style={{ marginBottom: 16 }}>
+                <span className="section-title" style={{ fontSize: '1rem', fontWeight: 900 }}>Immediate Alerts</span>
+                <button className="section-link" onClick={() => navigate('/reminders')} style={{ color: 'var(--accent-light)', fontWeight: 800 }}>View Timeline</button>
               </div>
-            ))}
-          </div>
-        )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {upcomingReminders.map(r => (
+                  <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '1.4rem' }}>🔔</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{r.title}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--accent-light)', fontWeight: 700, marginTop: 2 }}>{new Date(r.remind_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} today</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 60, borderRadius: 'var(--radius-lg)' }} />)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 100, borderRadius: 'var(--radius-lg)' }} />)}
           </div>
-        )}
+        ) }
       </div>
 
       <BottomNav />
