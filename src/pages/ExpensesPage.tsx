@@ -151,7 +151,10 @@ export default function ExpensesPage() {
                   </div>
                   <div className="tx-info" style={{ flex: 1 }}>
                     <div className="tx-title" style={{ fontSize: '1rem', fontWeight: 700 }}>{tx.title}</div>
-                    <div className="tx-date" style={{ fontSize: '0.8rem', opacity: 0.6, marginTop: 4 }}>{new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · {tx.category}</div>
+                    <div className="tx-date" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · {tx.category}
+                    </div>
                   </div>
                   <div className="tx-amount" style={{ textAlign: 'right' }}>
                     <div className="amt" style={{ fontSize: '1.1rem', fontWeight: 800, color: tx.type === 'income' ? 'var(--success)' : 'var(--danger)' }}>

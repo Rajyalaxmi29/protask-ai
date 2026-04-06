@@ -115,18 +115,21 @@ export default function RemindersPage() {
       />
 
       <div className="page-content">
-        <div className="stats-row" style={{ marginBottom: 20 }}>
-          <div className="stat-card glass-card" style={{ background: 'var(--accent-grad)', border: 'none' }}>
-            <div className="stat-card__value">{reminders.length}</div>
-            <div className="stat-card__label">Total</div>
+        {/* Stats Row with improved clarity and priority */}
+        <div className="stats-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 32 }}>
+          <div className="glass-card" style={{ background: 'var(--accent-grad)', border: 'none', padding: '20px 12px', textAlign: 'center', boxShadow: 'var(--shadow-blue)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{reminders.length}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Total</div>
           </div>
-          <div className="stat-card glass-card">
-            <div className="stat-card__value" style={{ color: 'var(--accent-light)' }}>{upcomingCount}</div>
-            <div className="stat-card__label">Upcoming</div>
+          
+          <div className="glass-card" style={{ background: 'rgba(165, 106, 189, 0.12)', border: '1px solid rgba(165, 106, 189, 0.4)', padding: '20px 12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--accent-light)', lineHeight: 1 }}>{upcomingCount}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--accent-light)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.8 }}>Upcoming</div>
           </div>
-          <div className="stat-card glass-card">
-            <div className="stat-card__value" style={{ color: 'var(--success)' }}>{doneCount}</div>
-            <div className="stat-card__label">Done</div>
+
+          <div className="glass-card" style={{ background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.4)', padding: '20px 12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>{doneCount}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.8 }}>Done</div>
           </div>
         </div>
 

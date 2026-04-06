@@ -10,12 +10,23 @@ const STATUSES: TaskStatus[] = ['todo', 'in_progress', 'done'];
 
 const PRIORITY_COLOR: Record<Priority, string> = { low: 'var(--success)', medium: 'var(--warning)', high: 'var(--danger)' };
 
-function formatDue(d?: string) {
-  if (!d) return null;
-  const due = new Date(d);
+function formatDue(iso?: string) {
+  if (!iso) return null;
+  const d = new Date(iso);
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return { label: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), overdue: due < now };
+  const today = new Date(now); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  
+  const isToday = d.toDateString() === today.toDateString();
+  const isTomorrow = d.toDateString() === tomorrow.toDateString();
+  
+  const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  let dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  
+  if (isToday) dateStr = 'Today';
+  else if (isTomorrow) dateStr = 'Tomorrow';
+  
+  return { date: dateStr, time: iso.includes('T') || iso.includes(':') ? timeStr : null, overdue: d < now && !isToday };
 }
 
 export default function TasksPage() {
@@ -23,7 +34,13 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | TaskStatus>('all');
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', priority: 'medium' as Priority, due_date: '' });
+  const [form, setForm] = useState({ 
+    title: '', 
+    description: '', 
+    priority: 'medium' as Priority, 
+    date: new Date().toISOString().split('T')[0],
+    time: '09:00'
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -57,19 +74,22 @@ export default function TasksPage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) { setError('Not logged in. Please sign in again.'); setSaving(false); return; }
     
+    // Combined date and time
+    const dateTime = form.date && form.time ? new Date(`${form.date}T${form.time}`).toISOString() : form.date ? new Date(form.date).toISOString() : null;
+
     const newTask = {
       user_id: session.user.id,
       title: form.title.trim(),
       description: form.description || null,
       priority: form.priority,
       status: 'todo',
-      due_date: form.due_date || null,
+      due_date: dateTime,
       created_at: new Date().toISOString()
     };
 
     const saved = await persistentData.mutate('tasks', 'INSERT', newTask);
     setTasks(prev => [saved as Task, ...prev]);
-    setForm({ title: '', description: '', priority: 'medium', due_date: '' });
+    setForm({ title: '', description: '', priority: 'medium', date: new Date().toISOString().split('T')[0], time: '09:00' });
     setShowAdd(false);
     setSaving(false);
     setError('');
@@ -93,19 +113,21 @@ export default function TasksPage() {
       />
 
       <div className="page-content">
-        {/* Stats */}
-        <div className="stats-row" style={{ marginBottom: 20 }}>
-          <div className="stat-card glass-card" style={{ background: 'var(--accent-grad)', border: 'none' }}>
-            <div className="stat-card__value">{counts.total}</div>
-            <div className="stat-card__label">Total</div>
+        {/* Stats Row with prioritized visibility */}
+        <div className="stats-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 32 }}>
+          <div className="glass-card" style={{ background: 'var(--accent-grad)', border: 'none', padding: '20px 12px', textAlign: 'center', boxShadow: 'var(--shadow-blue)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{counts.total}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Total Tasks</div>
           </div>
-          <div className="stat-card glass-card">
-            <div className="stat-card__value" style={{ color: 'var(--warning)' }}>{counts.pending}</div>
-            <div className="stat-card__label">Pending</div>
+          
+          <div className="glass-card" style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', padding: '20px 12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--warning)', lineHeight: 1 }}>{counts.pending}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.8 }}>Pending</div>
           </div>
-          <div className="stat-card glass-card">
-            <div className="stat-card__value" style={{ color: 'var(--success)' }}>{counts.done}</div>
-            <div className="stat-card__label">Done</div>
+
+          <div className="glass-card" style={{ background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.4)', padding: '20px 12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>{counts.done}</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.8 }}>Completed</div>
           </div>
         </div>
 
@@ -147,10 +169,23 @@ export default function TasksPage() {
                   <div className="task-body" style={{ flex: 1 }}>
                     <div className="task-title" style={{ fontSize: '1rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)' }}>{task.title}</div>
                     {task.description && <div className="task-desc" style={{ fontSize: '0.8rem', opacity: 0.7 }}>{task.description}</div>}
-                    <div className="task-meta" style={{ marginTop: 8 }}>
+                    <div className="task-meta" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                       <span className={`priority-badge ${task.priority ?? 'medium'}`} style={{ borderRadius: 6, fontSize: '0.62rem' }}>{task.priority ?? 'medium'}</span>
                       <span className={`status-badge ${task.status ?? 'todo'}`} style={{ borderRadius: 6, fontSize: '0.62rem' }}>{(task.status ?? 'todo').replace('_', ' ')}</span>
-                      {due && <span className={`task-due ${due.overdue ? 'overdue' : ''}`} style={{ fontSize: '0.72rem' }}>📅 {due.label}</span>}
+                      {due && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+                          <span style={{ color: due.overdue ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            {due.date}
+                          </span>
+                          {due.time && (
+                            <span style={{ color: 'var(--accent-light)', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                              {due.time}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <button
@@ -197,11 +232,20 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label" htmlFor="task-due">Due Date</label>
-                <div className="input-icon-wrap">
-                  <span className="input-prefix-icon">📅</span>
-                  <input id="task-due" type="date" className="input" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label">Due Date</label>
+                  <div className="input-icon-wrap">
+                    <span className="input-prefix-icon">📅</span>
+                    <input type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Due Time</label>
+                  <div className="input-icon-wrap">
+                    <span className="input-prefix-icon">🕒</span>
+                    <input type="time" className="input" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+                  </div>
                 </div>
               </div>
 
