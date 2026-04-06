@@ -36,10 +36,11 @@ export default function DashboardPage() {
         setAvatarUrl(user.user_metadata?.avatar_url || null);
       }
 
-      const [tsks, rems, txs] = await Promise.all([
+      const [tsks, rems, txs, fls] = await Promise.all([
         persistentData.get<Task>('tasks', uid),
         persistentData.get<Reminder>('reminders', uid),
         persistentData.get<Transaction>('transactions', uid),
+        persistentData.get<FileRecord>('files', uid)
       ]);
 
       const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -54,6 +55,11 @@ export default function DashboardPage() {
       });
       setTasks(tsks);
       setTransactions(txs);
+      
+      // We'll store files in a temp variable for chart memo
+      (window as any)._allFiles = fls;
+      (window as any)._allReminders = rems;
+
       setLoading(false);
     }
     load();
@@ -63,6 +69,9 @@ export default function DashboardPage() {
   const taskChartData = useMemo(() => {
     const days = [];
     const now = new Date();
+    const allFiles = (window as any)._allFiles || [];
+    const allReminders = (window as any)._allReminders || [];
+
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
@@ -70,14 +79,52 @@ export default function DashboardPage() {
       const isoDate = d.toISOString().split('T')[0];
       
       const dayTasks = tasks.filter(t => (t.due_date || t.created_at).startsWith(isoDate));
+      const dayTxs = transactions.filter(t => t.date === isoDate);
+      const dayFiles = allFiles.filter((f: any) => f.created_at?.startsWith(isoDate));
+      const dayRems = allReminders.filter((r: any) => r.remind_at?.startsWith(isoDate));
+
       days.push({
         name: dayStr,
         completed: dayTasks.filter(t => (t.status ?? 'todo') === 'done').length,
-        ongoing: dayTasks.filter(t => (t.status ?? 'todo') !== 'done').length
+        ongoing: dayTasks.filter(t => (t.status ?? 'todo') !== 'done').length,
+        expenseCount: dayTxs.filter(t => t.type === 'expense').length,
+        incomeTotal: dayTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+        fileCount: dayFiles.length,
+        reminderCount: dayRems.length
       });
     }
     return days;
-  }, [tasks]);
+  }, [tasks, transactions]);
+
+  // CUSTOM TOOLTIP COMPONENT
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const items = [
+        { icon: '📋', count: data.completed + data.ongoing, label: 'Tasks' },
+        { icon: '💸', count: data.expenseCount, label: 'Expenses' },
+        { icon: '📁', count: data.fileCount, label: 'Files' },
+        { icon: '🔔', count: data.reminderCount, label: 'Reminders' }
+      ];
+
+      return (
+        <div style={{ background: '#2D3139', border: 'none', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', color: '#fff', minWidth: 140 }}>
+           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {items.map((item, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: '0.9rem' }}>{item.icon}</span>
+                      <span style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 600 }}>{item.label}</span>
+                   </div>
+                   <span style={{ fontSize: '0.85rem', fontWeight: 900 }}>{item.count}</span>
+                </div>
+              ))}
+           </div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   // REAL DATA: Monthly Growth Calculation
   const monthlyBalance = useMemo(() => {
@@ -227,7 +274,7 @@ export default function DashboardPage() {
                  <BarChart data={taskChartData} barGap={8}>
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#AAA', fontSize: 10 }} dy={10} />
                     <YAxis hide />
-                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
                     <Bar dataKey="completed" fill="#9E8896" radius={[4, 4, 0, 0]} barSize={10} />
                     <Bar dataKey="ongoing" fill="#EFB08C" radius={[4, 4, 0, 0]} barSize={10} />
                  </BarChart>

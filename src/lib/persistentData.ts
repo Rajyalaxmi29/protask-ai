@@ -91,7 +91,7 @@ class PersistentData {
 
   // --- Write Methods ---
   public async mutate(table: string, type: MutationType, data: any, id?: string) {
-    const mutationId = id || data.id || Math.random().toString(36).substr(2, 9);
+    const mutationId = id || data.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9) + '-' + Math.random().toString(36).substr(2, 9));
     const mutation: OfflineMutation = {
       id: mutationId,
       table,
@@ -158,8 +158,8 @@ class PersistentData {
         this.removeFromQueue(m.id);
       } else {
         console.error(`Sync error for ${m.table}:`, error);
-        // If it's a conflict or policy error, we might want to remove it anyway to avoid infinite retries
-        if (error.code === '42501' || error.code === '23505') this.removeFromQueue(m.id);
+        // If it's a conflict, policy, or syntax error (invalid UUID), remove to prevent deadlock
+        if (['42501', '23505', '22P02'].includes(error.code)) this.removeFromQueue(m.id);
       }
     } catch (e) {
       console.error(`Failed to sync item ${m.id}`, e);
