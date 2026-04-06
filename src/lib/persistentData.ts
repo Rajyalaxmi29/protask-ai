@@ -162,7 +162,7 @@ class PersistentData {
     try {
       let error;
       if (m.type === 'INSERT') {
-        const { error: err } = await supabase.from(m.table).insert(m.data);
+        const { error: err } = await supabase.from(m.table).upsert(m.data);
         error = err;
       } else if (m.type === 'UPDATE') {
         const { error: err } = await supabase.from(m.table).update(m.data).eq('id', m.data.id || m.id);
@@ -195,6 +195,15 @@ class PersistentData {
     } catch (e) {
       console.error(`Failed to sync item ${m.id}`, e);
     }
+  }
+
+  public clearAllCache() {
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('cache_') || k === this.queueKey || k === this.userKey || k === 'protask_version') {
+        localStorage.removeItem(k);
+      }
+    });
+    window.location.reload();
   }
 }
 

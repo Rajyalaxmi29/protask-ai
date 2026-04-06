@@ -258,6 +258,16 @@ export default function ProfilePage() {
               sub: 'Download your data',
               onClick: () => alert('CSV Export coming soon!')
             },
+            { 
+              icon: '🛠️', 
+              label: 'Clear Cache & Fix Errors', 
+              sub: 'Nuclear reset if sync is stuck',
+              onClick: () => {
+                if (window.confirm('This will refresh the app and clear local data. Your data on the server is safe. Proceed?')) {
+                  persistentData.clearAllCache();
+                }
+              }
+            },
           ].map((item: any, i, arr) => (
             <div key={item.label} 
               onClick={item.onClick}
