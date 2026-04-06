@@ -43,7 +43,20 @@ export default function ExpensesPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load(); 
+    const draft = localStorage.getItem('protask_expense_draft');
+    if (draft) {
+      const d = JSON.parse(draft);
+      setForm(prev => ({ ...prev, ...d }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (form.title || form.amount) {
+      localStorage.setItem('protask_expense_draft', JSON.stringify(form));
+    }
+  }, [form]);
 
   const displayed = filter === 'all' ? transactions : transactions.filter(t => t.type === filter);
   const totalIncome  = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -75,6 +88,7 @@ export default function ExpensesPage() {
     const saved = await persistentData.mutate('transactions', 'INSERT', newTx);
     setTransactions(prev => [saved as Transaction, ...prev].sort((a,b) => b.date.localeCompare(a.date)));
     setForm({ title: '', amount: '', category: 'Food', via: 'Card', date: new Date().toISOString().split('T')[0], note: '' });
+    localStorage.removeItem('protask_expense_draft');
     setShowAdd(false);
     setSaving(false);
     setError('');

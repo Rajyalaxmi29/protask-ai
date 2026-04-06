@@ -24,7 +24,26 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
-
+if (typeof window !== 'undefined' && window.localStorage) {
+  const queueKey = 'offline_mutations';
+  const rawQueue = localStorage.getItem(queueKey);
+  if (rawQueue) {
+    try {
+      const queue = JSON.parse(rawQueue);
+      const cleaned = queue.filter((m: any) => {
+        if (m.type === 'INSERT') {
+          // UUID Check regex: ensuring we only keep database-compliant IDs
+          return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(m.id);
+        }
+        return true;
+      });
+      if (cleaned.length !== queue.length) {
+         localStorage.setItem(queueKey, JSON.stringify(cleaned));
+         console.warn(`[Sync Health] Cleared ${queue.length - cleaned.length} invalid items.`);
+      }
+    } catch (e) {}
+  }
+}
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

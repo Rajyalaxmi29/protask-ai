@@ -25,7 +25,21 @@ export default function RemindersPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load();
+    const draft = localStorage.getItem('protask_reminder_draft');
+    if (draft) {
+      const d = JSON.parse(draft);
+      setForm(prev => ({ ...prev, ...d }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (form.title || form.description) {
+      const { title, description, date, time } = form;
+      localStorage.setItem('protask_reminder_draft', JSON.stringify({ title, description, date, time }));
+    }
+  }, [form]);
 
   // Calendar logic
   const calendarDays = useMemo(() => {
@@ -70,6 +84,8 @@ export default function RemindersPage() {
     };
     const saved = await persistentData.mutate('reminders', 'INSERT', newRem);
     setReminders(prev => [...prev, saved as Reminder].sort((a,b) => a.remind_at.localeCompare(b.remind_at)));
+    setForm({ title: '', description: '', date: new Date().toISOString().split('T')[0], time: '12:00' });
+    localStorage.removeItem('protask_reminder_draft');
     setShowAdd(false);
     setSaving(false);
   };
@@ -110,7 +126,7 @@ export default function RemindersPage() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center' }}>
-                 {['S','M','T','W','T','F','S'].map(d => <div key={d} style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: 16 }}>{d}</div>)}
+                 {['S','M','T','W','T','F','S'].map((d, i) => <div key={i} style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: 16 }}>{d}</div>)}
                  {calendarDays.map((d, i) => {
                     if (!d) return <div key={i} />;
                     const isToday = new Date().toISOString().split('T')[0] === d.date;
@@ -208,19 +224,18 @@ export default function RemindersPage() {
       {showAdd && (
         <div className="overlay" onClick={() => setShowAdd(false)}>
            <div className="sheet" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-secondary)', borderRadius: '40px 40px 0 0', padding: '12px 24px 40px' }}>
-              <div className="sheet-handle" style={{ background: 'rgba(255,255,255,0.1)' }} />
               <h2 style={{ fontSize: '1.5rem', fontWeight: 900, textAlign: 'center', margin: '32px 0 24px', color: 'var(--text-primary)' }}>New Activity</h2>
               <div className="form-group" style={{ marginBottom: 24 }}>
-                 <input type="text" className="input" placeholder="Title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ background: 'rgba(255,255,255,0.03)', color: '#fff', fontSize: '1.1rem' }} autoFocus />
+                 <input type="text" className="input" placeholder="Title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ color: 'var(--text-primary)', fontSize: '1.1rem' }} autoFocus />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 40 }}>
                  <div className="form-group">
                     <label className="form-label" style={{ color: 'var(--text-muted)' }}>Date</label>
-                    <input type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={{ background: 'rgba(255,255,255,0.03)', color: '#fff' }} />
+                    <input type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={{ color: 'var(--text-primary)' }} />
                  </div>
                  <div className="form-group">
                     <label className="form-label" style={{ color: 'var(--text-muted)' }}>Time</label>
-                    <input type="time" className="input" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} style={{ background: 'rgba(255,255,255,0.03)', color: '#fff' }} />
+                    <input type="time" className="input" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} style={{ color: 'var(--text-primary)' }} />
                  </div>
               </div>
               <button className="btn btn-primary" onClick={addReminder} style={{ height: 60, borderRadius: '24px' }}>Save Entry</button>
