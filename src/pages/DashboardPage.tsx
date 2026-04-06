@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
@@ -10,107 +11,111 @@ interface Counts {
   tasks: number;
   tasksDone: number;
   reminders: number;
-  remindersToday: number;
   income: number;
   expense: number;
-  files: number;
 }
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const [counts, setCounts] = useState<Counts>({ tasks: 0, tasksDone: 0, reminders: 0, remindersToday: 0, income: 0, expense: 0, files: 0 });
-  const [recentTasks, setRecentTasks] = useState<Task[]>([]);
-  const [upcomingReminders, setUpcomingReminders] = useState<Reminder[]>([]);
+  const [counts, setCounts] = useState<Counts>({ tasks: 0, tasksDone: 0, reminders: 0, income: 0, expense: 0 });
   const [userName, setUserName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const today = new Date().toISOString().split('T')[0];
-  const now = new Date().toISOString();
 
   useEffect(() => {
     async function load() {
       const uid = await persistentData.getUserId();
       if (!uid) { setLoading(false); return; }
       
-      // Update basic UI if we can
-      if (navigator.onLine) {
-        supabase.auth.getSession().then(({ data }) => {
-          const user = data.session?.user;
-          setUserName(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User');
-          setAvatarUrl(user?.user_metadata?.avatar_url || null);
-        });
-      } else {
-        setUserName(localStorage.getItem('last_user_name') || 'User');
+      const session = await supabase.auth.getSession();
+      const user = session.data.session?.user;
+      if (user) {
+        setUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'User');
+        setAvatarUrl(user.user_metadata?.avatar_url || null);
       }
 
-      const [tasks, reminders, transactions, files] = await Promise.all([
+      const [tsks, rems, txs] = await Promise.all([
         persistentData.get<Task>('tasks', uid),
-        persistentData.get<Reminder>('reminders', uid, 'remind_at'),
-        persistentData.get<Transaction>('transactions', uid, 'date'),
-        persistentData.get<FileRecord>('files', uid),
+        persistentData.get<Reminder>('reminders', uid),
+        persistentData.get<Transaction>('transactions', uid),
       ]);
 
-      const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-      const expense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-      const remindersToday = reminders.filter(r => !r.is_done && r.remind_at.startsWith(today)).length;
-
+      const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      
       setCounts({
-        tasks: tasks.filter(t => (t.status ?? 'todo') !== 'done').length,
-        tasksDone: tasks.filter(t => (t.status ?? 'todo') === 'done').length,
-        reminders: reminders.filter(r => !r.is_done).length,
-        remindersToday,
+        tasks: tsks.filter(t => (t.status ?? 'todo') !== 'done').length,
+        tasksDone: tsks.filter(t => (t.status ?? 'todo') === 'done').length,
+        reminders: rems.filter(r => !r.is_done).length,
         income,
-        expense,
-        files: files.length,
+        expense
       });
-      setRecentTasks(tasks.filter(t => (t.status ?? 'todo') !== 'done').slice(0, 3));
-      setUpcomingReminders(reminders.filter(r => !r.is_done && r.remind_at >= now).slice(0, 3));
+      setTasks(tsks);
+      setTransactions(txs);
       setLoading(false);
     }
     load();
   }, []);
 
-  const greeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
+  // REAL DATA: Daily Tasks Overview (Last 7 Days)
+  const taskChartData = useMemo(() => {
+    const days = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dayStr = d.toLocaleDateString('en-US', { weekday: 'short' });
+      const isoDate = d.toISOString().split('T')[0];
+      
+      const dayTasks = tasks.filter(t => (t.due_date || t.created_at).startsWith(isoDate));
+      days.push({
+        name: dayStr,
+        completed: dayTasks.filter(t => (t.status ?? 'todo') === 'done').length,
+        ongoing: dayTasks.filter(t => (t.status ?? 'todo') !== 'done').length
+      });
+    }
+    return days;
+  }, [tasks]);
 
-  const MODULES = [
-    {
-      title: 'Tasks',
-      count: counts.tasks,
-      subtitle: `${counts.tasksDone} completed`,
-      emoji: '✅',
-      color: '#2563eb',
-      path: '/tasks',
-    },
-    {
-      title: 'Reminders',
-      count: counts.reminders,
-      subtitle: `${counts.remindersToday} today`,
-      emoji: '🔔',
-      color: '#f59e0b',
-      path: '/reminders',
-    },
-    {
-      title: 'Finance',
-      count: `₹${counts.income.toFixed(0)}`,
-      subtitle: `Spent ₹${counts.expense.toFixed(0)}`,
-      emoji: '💸',
-      color: '#22c55e',
-      path: '/expenses',
-    },
-    {
-      title: 'Files',
-      count: counts.files,
-      subtitle: 'Documents',
-      emoji: '📁',
-      color: '#8b5cf6',
-      path: '/files',
-    },
-  ];
+  // REAL DATA: Monthly Growth Calculation
+  const monthlyBalance = useMemo(() => {
+    const now = new Date();
+    const thisMonth = now.toISOString().substring(0, 7); // YYYY-MM
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonth = prevMonthDate.toISOString().substring(0, 7);
+
+    const thisMonthTxs = transactions.filter(t => t.date.startsWith(thisMonth));
+    const thisMonthNet = thisMonthTxs.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+
+    const prevMonthTxs = transactions.filter(t => t.date.startsWith(prevMonth));
+    const prevMonthNet = prevMonthTxs.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+
+    const diff = thisMonthNet - prevMonthNet;
+    const pct = prevMonthNet !== 0 ? Math.round((diff / Math.abs(prevMonthNet)) * 100) : 100;
+
+    return { 
+      net: thisMonthNet, 
+      diff: diff >= 0 ? `+₹${Math.abs(diff).toLocaleString()}` : `-₹${Math.abs(diff).toLocaleString()}`,
+      pct: `${pct}%`,
+      isUp: diff >= 0
+    };
+  }, [transactions]);
+
+  // REAL DATA: Pulse Sparkline from Recent Daily Net
+  const sparkData = useMemo(() => {
+    const last7 = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const iso = d.toISOString().split('T')[0];
+        const dayNet = transactions.filter(t => t.date === iso).reduce((s, t) => s + t.amount, 0);
+        last7.push({ v: dayNet || 10 }); // fallback to 10 for visual pulse if 0
+    }
+    return last7;
+  }, [transactions]);
 
   return (
     <div className="page">
@@ -118,137 +123,125 @@ export default function DashboardPage() {
         showLogo
         showTheme
         rightContent={
-          <div
-            onClick={() => navigate('/profile')}
-            style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', color: '#fff', border: '3px solid rgba(255,255,255,0.15)', overflow: 'hidden', boxShadow: 'var(--shadow-blue)' }}
-          >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              userName.charAt(0).toUpperCase()
-            )}
+          <div onClick={() => navigate('/profile')} style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, cursor: 'pointer', color: '#fff' }}>
+             {avatarUrl ? <img src={avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-md)' }} alt="avatar" /> : userName.charAt(0).toUpperCase()}
           </div>
         }
       />
 
-      <div className="page-content">
-        {/* Greeting Section */}
-        <div style={{ marginBottom: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.02em' }}>{greeting()},</p>
-            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, letterSpacing: '-0.02em' }}>{userName}</h2>
-          </div>
-          <div className="glass-card" style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 10 }}>
-             <span style={{ fontSize: '1.2rem', animation: 'float 3s ease-in-out infinite' }}>🚀</span>
-             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-light)' }}>ACTIVE</span>
-          </div>
+      <div className="page-content" style={{ padding: '20px' }}>
+        <div style={{ marginBottom: 24 }}>
+           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 2 }}>Good evening,</p>
+           <h2 style={{ fontSize: '1.8rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 10 }}>
+              {userName} <span className="animate-wave">👋</span>
+           </h2>
         </div>
 
-        {/* Today's Overview Glass Card */}
-        <div className="glass-card" style={{ background: 'var(--accent-grad)', border: 'none', padding: '24px', marginBottom: 32, boxShadow: 'var(--shadow-blue)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: -30, right: -20, width: 140, height: 140, background: 'rgba(255,255,255,0.12)', borderRadius: '50%', filter: 'blur(30px)' }} />
-          <div style={{ position: 'absolute', bottom: -40, left: -10, width: 100, height: 100, background: 'rgba(255,255,255,0.08)', borderRadius: '50%', filter: 'blur(20px)' }} />
-          
-          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 20 }}>Today's Performance</div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-            {[
-              { label: 'Tasks', val: counts.tasks, color: '#fff' },
-              { label: 'Reminders', val: counts.remindersToday, color: '#fff' },
-              { label: 'Balance', val: `₹${(counts.income - counts.expense).toFixed(0)}`, color: '#fff' },
-            ].map(s => (
-              <div key={s.label}>
-                <div style={{ fontSize: '2.2rem', fontWeight: 900, color: s.color, lineHeight: 1, marginBottom: 8 }}>{s.val}</div>
-                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
+        {/* Dynamic Financial Hero */}
+        <div className="card" style={{ background: '#2D3139', border: 'none', padding: '24px', borderRadius: '24px', color: '#fff', marginBottom: 16 }}>
+           <div style={{ fontSize: '0.85rem', opacity: 0.8, marginBottom: 8 }}>Total Net Worth</div>
+           <div style={{ fontSize: '2.4rem', fontWeight: 900, marginBottom: 12 }}>₹{(counts.income - counts.expense).toLocaleString('en-IN')}</div>
+           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '0.85rem', background: monthlyBalance.isUp ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)', color: monthlyBalance.isUp ? '#4ADE80' : '#F87171', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                 {monthlyBalance.isUp ? '↗' : '↘'} {monthlyBalance.pct}
+              </span>
+              <span style={{ fontSize: '0.85rem', opacity: 0.6 }}>{monthlyBalance.diff} this month</span>
+           </div>
         </div>
 
-        {/* Feature Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 32 }}>
+           <div className="card" style={{ background: '#fff', border: '1px solid #F0F0F0', padding: '20px', borderRadius: '24px' }}>
+              <div style={{ width: 32, height: 32, borderRadius: '8px', background: '#F8F9FB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, color: '#333' }}>↑</div>
+              <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: 600, marginBottom: 4 }}>Total Income</div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#111' }}>₹{counts.income.toLocaleString('en-IN')}</div>
+           </div>
+           <div className="card" style={{ background: '#fff', border: '1px solid #F0F0F0', padding: '20px', borderRadius: '24px' }}>
+              <div style={{ width: 32, height: 32, borderRadius: '8px', background: '#F8F9FB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, color: '#333' }}>↓</div>
+              <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: 600, marginBottom: 4 }}>Total Expense</div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#111' }}>₹{counts.expense.toLocaleString('en-IN')}</div>
+           </div>
+        </div>
+
         <div className="section-header" style={{ marginBottom: 16 }}>
-          <span className="section-title" style={{ fontSize: '1.1rem', fontWeight: 900 }}>Ecosystem</span>
+           <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#111' }}>Ecosystem</h3>
+           <button style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 700, fontSize: '0.85rem' }}>See all</button>
         </div>
-        <div className="feature-grid" style={{ marginBottom: 32 }}>
-          {MODULES.map(m => (
-            <div key={m.title} className="glass-card feature-card" onClick={() => navigate(m.path)} style={{ transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', cursor: 'pointer' }}>
-              <div className="feature-card__header" style={{ marginBottom: 16 }}>
-                <div className="feature-card__icon-wrap" style={{ background: `${m.color}15`, color: m.color, width: 44, height: 44 }}>
-                  <span style={{ fontSize: '1.4rem' }}>{m.emoji}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 40 }}>
+           {[
+              { title: 'Task Manager', path: '/tasks', icon: '📋', count: counts.tasks, color: '#3B82F6' },
+              { title: 'Reminders', path: '/reminders', icon: '🔔', count: counts.reminders, color: '#F59E0B' },
+              { title: 'Finance Tracker', path: '/expenses', icon: '💸', count: transactions.length, color: '#10B981' }
+           ].map((item, idx) => (
+             <div key={idx} onClick={() => navigate(item.path)} className="card" style={{ background: '#fff', border: '1px solid #F0F0F0', padding: '16px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}>
+                <div style={{ width: 44, height: 44, borderRadius: '14px', background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.2rem' }}>
+                   {item.icon}
                 </div>
-                <div style={{ background: 'var(--bg-secondary)', padding: '4px 8px', borderRadius: 8, fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)' }}>OPEN</div>
-              </div>
-              <div>
-                <div className="feature-card__count" style={{ color: 'var(--text-primary)', fontSize: '1.3rem', fontWeight: 900 }}>{m.count}</div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-muted)', marginTop: 4 }}>{m.title}</div>
-                <div style={{ fontSize: '0.7rem', color: m.color, fontWeight: 700, marginTop: 4 }}>{m.subtitle}</div>
-              </div>
-            </div>
-          ))}
+                <div style={{ flex: 1 }}>
+                   <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#111' }}>{item.title}</div>
+                   <div style={{ fontSize: '0.75rem', color: '#888' }}>{item.count} items tracked</div>
+                </div>
+                <div style={{ color: '#CCC' }}>❯</div>
+             </div>
+           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24 }}>
-          {/* Recent Tasks */}
-          {!loading && recentTasks.length > 0 && (
-            <div className="glass-card" style={{ border: '1px solid var(--border)' }}>
-              <div className="section-header" style={{ marginBottom: 16 }}>
-                <span className="section-title" style={{ fontSize: '1rem', fontWeight: 900 }}>Recent Tasks</span>
-                <button className="section-link" onClick={() => navigate('/tasks')} style={{ color: 'var(--accent-light)', fontWeight: 800 }}>Explore</button>
+        <div style={{ marginBottom: 16 }}>
+           <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#111' }}>Task Overview</h3>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+           <div className="card" style={{ background: '#9E8896', border: 'none', borderRadius: '24px', padding: '24px', position: 'relative', overflow: 'hidden', minHeight: 180 }}>
+              <div style={{ textAlign: 'center', color: '#fff', position: 'relative', zIndex: 2 }}>
+                 <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>{counts.tasksDone}</div>
+                 <div style={{ fontSize: '0.75rem', opacity: 0.8, fontWeight: 600 }}>Completed Task</div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {recentTasks.map(t => (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: (t.priority ?? 'medium') === 'high' ? 'var(--danger)' : (t.priority ?? 'medium') === 'medium' ? 'var(--warning)' : 'var(--success)', boxShadow: `0 0 10px ${(t.priority ?? 'medium') === 'high' ? 'var(--danger)' : (t.priority ?? 'medium') === 'medium' ? 'var(--warning)' : 'var(--success)'}55` }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{t.title}</div>
-                      {t.due_date && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                             {new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                          {t.due_date.includes('T') && (
-                            <span style={{ fontSize: '0.7rem', color: 'var(--accent-light)', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                               {new Date(t.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '60px' }}>
+                 <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sparkData}>
+                       <Area type="monotone" dataKey="v" stroke="rgba(255,255,255,0.4)" fill="rgba(255,255,255,0.1)" strokeWidth={2} />
+                    </AreaChart>
+                 </ResponsiveContainer>
               </div>
-            </div>
-          )}
-
-          {/* Upcoming Reminders */}
-          {!loading && upcomingReminders.length > 0 && (
-            <div className="glass-card" style={{ border: '1px solid var(--border)' }}>
-              <div className="section-header" style={{ marginBottom: 16 }}>
-                <span className="section-title" style={{ fontSize: '1rem', fontWeight: 900 }}>Immediate Alerts</span>
-                <button className="section-link" onClick={() => navigate('/reminders')} style={{ color: 'var(--accent-light)', fontWeight: 800 }}>View Timeline</button>
+           </div>
+           <div className="card" style={{ background: '#EFB08C', border: 'none', borderRadius: '24px', padding: '24px', position: 'relative', overflow: 'hidden', minHeight: 180 }}>
+              <div style={{ textAlign: 'center', color: '#fff', position: 'relative', zIndex: 2 }}>
+                 <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>{counts.tasks}</div>
+                 <div style={{ fontSize: '0.75rem', opacity: 0.8, fontWeight: 600 }}>Ongoing Task</div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {upcomingReminders.map(r => (
-                  <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '1.4rem' }}>🔔</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{r.title}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--accent-light)', fontWeight: 700, marginTop: 2 }}>{new Date(r.remind_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} today</div>
-                    </div>
-                  </div>
-                ))}
+              <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '60px' }}>
+                 <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sparkData}>
+                       <Area type="monotone" dataKey="v" stroke="rgba(255,255,255,0.4)" fill="rgba(255,255,255,0.1)" strokeWidth={2} />
+                    </AreaChart>
+                 </ResponsiveContainer>
               </div>
-            </div>
-          )}
+           </div>
         </div>
 
-        {loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 100, borderRadius: 'var(--radius-lg)' }} />)}
-          </div>
-        ) }
+        <div className="card" style={{ background: '#fff', border: '1px solid #F0F0F0', borderRadius: '24px', padding: '24px', marginBottom: 20 }}>
+           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#111' }}>Daily tasks overview</div>
+              <div style={{ fontSize: '0.75rem', color: '#AAA' }}>{new Date().toLocaleDateString('en-GB')}</div>
+           </div>
+           <div style={{ width: '100%', height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                 <BarChart data={taskChartData} barGap={8}>
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#AAA', fontSize: 10 }} dy={10} />
+                    <YAxis hide />
+                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }} />
+                    <Bar dataKey="completed" fill="#9E8896" radius={[4, 4, 0, 0]} barSize={10} />
+                    <Bar dataKey="ongoing" fill="#EFB08C" radius={[4, 4, 0, 0]} barSize={10} />
+                 </BarChart>
+              </ResponsiveContainer>
+           </div>
+           <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: '#666', fontWeight: 600 }}>
+                 <div style={{ width: 8, height: 8, borderRadius: '2px', background: '#9E8896' }} /> Completed
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: '#666', fontWeight: 600 }}>
+                 <div style={{ width: 8, height: 8, borderRadius: '2px', background: '#EFB08C' }} /> Ongoing
+              </div>
+           </div>
+        </div>
       </div>
 
       <BottomNav />

@@ -123,20 +123,21 @@ export default function TasksPage() {
 
       <div className="page-content">
         {/* Stats Row with prioritized visibility */}
-        <div className="stats-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 32 }}>
-          <div className="glass-card" style={{ background: 'var(--accent-grad)', border: 'none', padding: '20px 12px', textAlign: 'center', boxShadow: 'var(--shadow-blue)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{counts.total}</div>
-            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Total Tasks</div>
+        {/* Professional Stats Row - Optimized for mobile space */}
+        <div className="stats-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 24 }}>
+          <div className="glass-card" style={{ background: 'var(--accent-grad)', border: 'none', padding: '14px 10px', textAlign: 'center', boxShadow: 'var(--shadow-blue)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{counts.total}</div>
+            <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 4 }}>Total</div>
           </div>
           
-          <div className="glass-card" style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', padding: '20px 12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--warning)', lineHeight: 1 }}>{counts.pending}</div>
-            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.8 }}>Pending</div>
+          <div className="glass-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', padding: '14px 10px', textAlign: 'center', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--warning)', lineHeight: 1 }}>{counts.pending}</div>
+            <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 4 }}>Pending</div>
           </div>
 
-          <div className="glass-card" style={{ background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.4)', padding: '20px 12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>{counts.done}</div>
-            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.8 }}>Completed</div>
+          <div className="glass-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', padding: '14px 10px', textAlign: 'center', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>{counts.done}</div>
+            <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 4 }}>Done</div>
           </div>
         </div>
 
@@ -190,7 +191,7 @@ export default function TasksPage() {
                           <div className="task-desc" style={{ fontSize: '0.85rem', color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', lineHeight: 1.4 }}>{task.description}</div>
                         </div>
                       )}
-                      <div className="task-meta" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <div className="task-meta" style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                         <span className={`priority-badge ${task.priority ?? 'medium'}`} style={{ borderRadius: 6, fontSize: '0.62rem' }}>{task.priority ?? 'medium'}</span>
                         <span className={`status-badge ${task.status ?? 'todo'}`} style={{ borderRadius: 6, fontSize: '0.62rem' }}>{(task.status ?? 'todo').replace('_', ' ')}</span>
                         {due && (
