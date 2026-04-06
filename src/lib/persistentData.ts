@@ -15,16 +15,27 @@ class PersistentData {
   private userKey = 'last_user_id';
 
   public async getUserId(): Promise<string | null> {
+    const cachedId = localStorage.getItem(this.userKey);
+    
+    // If we have it cached, return it instantly to prevent UI blocking
+    if (cachedId) return cachedId;
+
     if (navigator.onLine) {
       try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.user.id) {
+        // Only try the network if we don't have a cached ID
+        const { data } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<any>((_, reject) => setTimeout(() => reject('timeout'), 2000))
+        ]);
+        if (data?.session?.user?.id) {
           localStorage.setItem(this.userKey, data.session.user.id);
           return data.session.user.id;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Auth check failed or timed out, returning null');
+      }
     }
-    return localStorage.getItem(this.userKey);
+    return null;
   }
 
   // --- Read Methods ---
@@ -60,16 +71,23 @@ class PersistentData {
     }
 
     // 3. APPLY PENDING LOCAL MUTATIONS FOR UI CONSISTENCY
-    // This solves the bug where items vanish on refresh because they aren't synced yet.
+    // This ensures that even if we just fetched from the network, 
+    // items that haven't finished syncing yet are still reflected in the UI.
     const pending = this.getQueue().filter(m => m.table === table);
+    
+    // Create a map for faster lookup (optimization from merged branch)
+    const resultsMap = new Map(results.map((r: any) => [r.id, r]));
+
     pending.forEach(m => {
       if (m.type === 'INSERT') {
-        // Prevent duplicates if by any chance the item is already in the server result
-        if (!results.find((r: any) => r.id === m.id)) {
+        // Only add if not already in results (to prevent duplicates if sync happened mid-fetch)
+        if (!resultsMap.has(m.id)) {
           results = [m.data, ...results];
+          resultsMap.set(m.id, m.data);
         }
       } else if (m.type === 'UPDATE') {
-        results = results.map((r: any) => r.id === m.data.id ? { ...r, ...m.data } : r);
+        // Find by ID and merge data
+        results = results.map((r: any) => r.id === (m.data.id || m.id) ? { ...r, ...m.data } : r);
       } else if (m.type === 'DELETE') {
         results = results.filter((r: any) => r.id !== m.id);
       }
@@ -147,7 +165,7 @@ class PersistentData {
         const { error: err } = await supabase.from(m.table).insert(m.data);
         error = err;
       } else if (m.type === 'UPDATE') {
-        const { error: err } = await supabase.from(m.table).update(m.data).eq('id', m.data.id);
+        const { error: err } = await supabase.from(m.table).update(m.data).eq('id', m.data.id || m.id);
         error = err;
       } else if (m.type === 'DELETE') {
         const { error: err } = await supabase.from(m.table).delete().eq('id', m.id);
@@ -158,14 +176,15 @@ class PersistentData {
         this.removeFromQueue(m.id);
       } else {
         console.error(`Sync error for ${m.table}:`, error);
+        
         // Supabase error objects might have the code in different places; let's log everything
         try {
           const errorMsg = typeof error === 'object' ? JSON.stringify(error) : error;
           console.error(`Detailed sync failure info: ${errorMsg}`);
         } catch (e) {}
 
-        // If it's a conflict, policy error, or invalid data, remove it to stop the error loop
-        // 22P02 = Invalid UUID format, 23502 = Not null violation, etc.
+        // If it's a conflict, policy error, or invalid data (syntax error), remove to prevent deadlock
+        // 22P02 = Invalid UUID format, 23502 = Not null, 23505 = Unique constraint, 42501 = RLS
         const isClientError = error.code && (error.code.startsWith('22') || error.code.startsWith('23') || error.code === '42501');
         
         if (isClientError || error.status === 400 || (error.message && error.message.includes('invalid input syntax'))) {
