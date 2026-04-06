@@ -1,48 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
 import { persistentData } from '../lib/persistentData';
 import type { Reminder } from '../lib/supabase';
 
-const CATEGORIES = ['General', 'Work', 'Health', 'Personal', 'Finance', 'Shopping', 'Travel', 'Study'];
-const CAT_EMOJIS: Record<string, string> = {
-  General: '📌', Work: '💼', Health: '🏥', Personal: '👤',
-  Finance: '💸', Shopping: '🛍️', Travel: '✈️', Study: '📚',
-};
-
-function formatReminderTime(iso: string) {
-  const d = new Date(iso);
-  const today = new Date();
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  const isToday = d.toDateString() === today.toDateString();
-  const isTomorrow = d.toDateString() === tomorrow.toDateString();
-  
-  const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  let dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  
-  if (isToday) dateStr = 'Today';
-  else if (isTomorrow) dateStr = 'Tomorrow';
-  
-  return { date: dateStr, time: timeStr, isOverdue: d < new Date() };
-}
-
 export default function RemindersPage() {
+  const navigate = useNavigate();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'upcoming' | 'done' | 'all'>('all'); // Default to 'all' to show everything
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewDate, setViewDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ 
-    title: '', 
-    description: '', 
-    date: new Date().toISOString().split('T')[0], 
-    time: '12:00',
-    category: 'General' 
-  });
+  const [viewMode, setViewMode] = useState<'calendar' | 'grid'>('calendar');
+  const [form, setForm] = useState({ title: '', description: '', date: new Date().toISOString().split('T')[0], time: '12:00' });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const now = new Date().toISOString();
 
   async function load() {
     const userId = await persistentData.getUserId();
@@ -54,245 +27,187 @@ export default function RemindersPage() {
 
   useEffect(() => { load(); }, []);
 
-  const displayed = reminders.filter(r => {
-    if (filter === 'upcoming') return !r.is_done && r.remind_at >= now;
-    if (filter === 'done') return r.is_done;
-    return true;
-  });
+  // Calendar logic
+  const calendarDays = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    const days = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) {
+        const d = new Date(year, month, i);
+        days.push({ num: i, date: d.toISOString().split('T')[0] });
+    }
+    return days;
+  }, [viewDate]);
 
-  const toggleDone = async (r: Reminder) => {
-    const updated = await persistentData.mutate('reminders', 'UPDATE', { ...r, is_done: !r.is_done });
-    setReminders(prev => prev.map(x => x.id === r.id ? updated : x));
-  };
+  const monthLabel = viewDate.toLocaleString('en-US', { month: 'long' });
 
-  const deleteReminder = async (id: string) => {
-    await persistentData.mutate('reminders', 'DELETE', { id });
-    setReminders(prev => prev.filter(r => r.id !== id));
-  };
+  const displayedReminders = useMemo(() => {
+    return reminders.sort((a,b) => a.remind_at.localeCompare(b.remind_at));
+  }, [reminders]);
 
   const addReminder = async () => {
-    if (!form.title.trim() || !form.date || !form.time) { setError('Title, date and time are required.'); return; }
+    if (!form.title.trim()) return;
     setSaving(true);
     const userId = await persistentData.getUserId();
-    if (!userId) { setError('Not logged in. Please sign in again.'); setSaving(false); return; }
-    
-    // Combine date and time
-    const dateTime = new Date(`${form.date}T${form.time}`).toISOString();
-
-    const newRem = {
-      user_id: userId,
-      title: form.title.trim(),
-      description: form.description || null,
-      remind_at: dateTime,
-      category: form.category,
-      is_done: false,
-      created_at: new Date().toISOString()
+    const dateTime = `${form.date}T${form.time}:00`;
+    const newRem = { 
+        user_id: userId, 
+        title: form.title, 
+        description: form.description || '', 
+        remind_at: dateTime, 
+        is_done: false, 
+        category: 'General', 
+        created_at: new Date().toISOString() 
     };
-
     const saved = await persistentData.mutate('reminders', 'INSERT', newRem);
-    setReminders(prev => [...prev, saved as Reminder].sort((a, b) => a.remind_at.localeCompare(b.remind_at)));
-    setForm({ title: '', description: '', date: new Date().toISOString().split('T')[0], time: '12:00', category: 'General' });
+    setReminders(prev => [...prev, saved as Reminder].sort((a,b) => a.remind_at.localeCompare(b.remind_at)));
     setShowAdd(false);
     setSaving(false);
-    setError('');
   };
 
-  const upcomingCount = reminders.filter(r => !r.is_done && r.remind_at >= now).length;
-  const doneCount = reminders.filter(r => r.is_done).length;
+  const changeMonth = (offset: number) => {
+    const d = new Date(viewDate);
+    d.setMonth(d.getMonth() + offset);
+    setViewDate(d);
+  };
 
   return (
-    <div className="page">
+    <div className="page" style={{ background: '#FFF' }}>
       <AppHeader
         title="Reminders"
         showBack
         showTheme
         rightContent={
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="icon-btn" onClick={() => setViewMode(v => v === 'list' ? 'grid' : 'list')} aria-label="Toggle layout">
-              {viewMode === 'list' 
-                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-              }
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button 
+                className="icon-btn" 
+                onClick={() => setViewMode(v => v === 'calendar' ? 'grid' : 'calendar')} 
+                style={{ width: 40, height: 40, borderRadius: '14px', background: '#fff' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             </button>
-            <button className="icon-btn" onClick={() => setShowAdd(true)} aria-label="Add reminder" style={{ background: 'var(--accent-grad)', border: 'none', color: '#fff' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
+            <button 
+                onClick={() => setShowAdd(true)} 
+                style={{ width: 40, height: 40, borderRadius: '14px', background: 'var(--accent-grad)', border: 'none', color: '#fff', fontSize: '1.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px var(--accent-glow)' }}>
+                +
             </button>
           </div>
         }
       />
 
-      <div className="page-content">
-        {/* Stats Row with improved clarity and priority */}
-        {/* Professional Stats Row - Optimized for mobile space */}
-        <div className="stats-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 24 }}>
-          <div className="glass-card" style={{ background: 'var(--accent-grad)', border: 'none', padding: '14px 10px', textAlign: 'center', boxShadow: 'var(--shadow-blue)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{reminders.length}</div>
-            <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 4 }}>Total</div>
-          </div>
-          
-          <div className="glass-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', padding: '14px 10px', textAlign: 'center', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--accent-light)', lineHeight: 1 }}>{upcomingCount}</div>
-            <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 4 }}>Upcoming</div>
-          </div>
-
-          <div className="glass-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', padding: '14px 10px', textAlign: 'center', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>{doneCount}</div>
-            <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 4 }}>Done</div>
-          </div>
+      <div className="page-content" style={{ padding: '0px' }}>
+        {/* Month Selector matching image style */}
+        <div style={{ padding: '20px 24px 10px', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#111' }}>{monthLabel}</h2>
+            <div style={{ display: 'flex', gap: 10 }}>
+               <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#CCC', cursor: 'pointer' }}>❮</button>
+               <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#CCC', cursor: 'pointer' }}>❯</button>
+            </div>
+            <button onClick={load} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '1.2rem' }}>🔄</button>
         </div>
 
-        <div className="chips" style={{ marginBottom: 20 }}>
-          {(['all', 'upcoming', 'done'] as const).map(f => (
-            <button key={f} className={`chip ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
+        {viewMode === 'calendar' ? (
+          <>
+            {/* Calendar Grid */}
+            <div style={{ padding: '0 24px 20px' }}>
+               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', marginBottom: 12 }}>
+                  {['S','M','T','W','T','F','S'].map(d => <div key={d} style={{ fontSize: '0.75rem', fontWeight: 800, color: '#CCC' }}>{d}</div>)}
+               </div>
+               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                  {calendarDays.map((d, i) => {
+                     if (!d) return <div key={i} />;
+                     const hasRem = reminders.some(r => r.remind_at.startsWith(d.date));
+                     const isSelected = selectedDate === d.date;
+                     return (
+                       <div key={i} onClick={() => setSelectedDate(d.date)} style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800, color: isSelected ? 'var(--accent-light)' : '#111', cursor: 'pointer', position: 'relative', border: isSelected ? '2px solid var(--accent-light)' : 'none', borderRadius: '50%' }}>
+                          {d.num}
+                          {hasRem && !isSelected && <div style={{ position: 'absolute', bottom: 6, width: 4, height: 4, borderRadius: '50%', background: 'var(--accent-dim)' }} />}
+                       </div>
+                     );
+                  })}
+               </div>
+            </div>
 
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 'var(--radius-lg)' }} />)}
-          </div>
-        ) : displayed.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state__emoji">🔔</div>
-            <div className="empty-state__title">No reminders found</div>
-            <div className="empty-state__desc">Stay organized by adding reminders for your important tasks.</div>
-            <button className="btn btn-primary" style={{ width: 'auto', padding: '12px 32px', marginTop: 12 }} onClick={() => setShowAdd(true)}>Create Reminder</button>
-          </div>
-        ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(160px, 1fr))' : '1fr', 
-            gap: 12 
-          }}>
-            {displayed.map(r => {
-              const { date, time, isOverdue } = formatReminderTime(r.remind_at);
-              
-              if (viewMode === 'list') {
-                return (
-                  <div key={r.id} className={`card ${r.is_done ? 'done' : ''}`} style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 16, background: r.is_done ? 'var(--bg-card)' : 'var(--bg-secondary)', border: r.is_done ? '1px solid var(--border)' : '1px solid var(--border-active)' }}>
-                    <div className="reminder-icon" style={{ background: r.is_done ? 'var(--accent-dim)' : 'var(--accent-grad)', width: 48, height: 48, borderRadius: 'var(--radius-md)', color: '#fff', fontSize: '1.4rem' }}>
-                      <span>{CAT_EMOJIS[r.category] || '📌'}</span>
-                    </div>
-                    <div className="reminder-body" style={{ flex: 1 }}>
-                      <div className="reminder-title" style={{ fontSize: '1rem', fontWeight: 700, color: r.is_done ? 'var(--text-muted)' : 'var(--text-primary)' }}>{r.title}</div>
-                      <div className="reminder-meta-row" style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
-                        <div className="reminder-date" style={{ color: !r.is_done && isOverdue ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                          {date}
-                        </div>
-                        <div className="reminder-time" style={{ color: 'var(--accent-light)', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                          {time}
-                        </div>
+            {/* List Sheet */}
+            <div style={{ background: '#FFF', borderTop: '1px solid #F5F5F5', minHeight: '400px', padding: '32px 24px' }}>
+               <div style={{ width: 40, height: 4, background: '#F0F0F0', borderRadius: '2px', margin: '0 auto 32px' }} />
+               
+               {displayedReminders.length === 0 ? (
+                 <div style={{ textAlign: 'center', padding: '40px 0', color: '#AAA' }}>No reminders found.</div>
+               ) : (
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                    {Array.from(new Set(displayedReminders.map(r => r.remind_at.split('T')[0]))).map(date => (
+                      <div key={date}>
+                         <h4 style={{ fontSize: '0.8rem', fontWeight: 900, color: '#111', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+                            {new Date(date as string).toLocaleDateString('en-US', { weekday: 'long', day: 'numeric' })}
+                            <div style={{ flex: 1, height: 1, background: '#F5F5F5' }} />
+                         </h4>
+                         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                            {displayedReminders.filter(r => r.remind_at.startsWith(date)).map(r => (
+                              <div key={r.id} style={{ display: 'flex', gap: 20 }}>
+                                 <div style={{ width: 50, fontSize: '0.8rem', color: '#AAA', fontWeight: 700 }}>
+                                    {new Date(r.remind_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                 </div>
+                                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-light)', marginTop: 4 }} />
+                                 <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#111' }}>{r.title}</div>
+                                    {r.description && <div style={{ fontSize: '0.85rem', color: '#888', marginTop: 4 }}>{r.description}</div>}
+                                 </div>
+                              </div>
+                            ))}
+                         </div>
                       </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <button
-                        onClick={() => toggleDone(r)}
-                        style={{ background: r.is_done ? 'var(--accent-dim)' : 'var(--bg-input)', border: 'none', borderRadius: 'var(--radius-sm)', color: r.is_done ? 'var(--success)' : 'var(--accent-light)', cursor: 'pointer', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 800 }}>
-                        {r.is_done ? 'DONE' : 'DO IT'}
-                      </button>
-                      <button onClick={() => deleteReminder(r.id)} className="icon-btn" style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)' }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/>
-                        </svg>
-                      </button>
-                    </div>
+                    ))}
+                 </div>
+               )}
+            </div>
+          </>
+        ) : (
+          /* Grid View Mode */
+          <div style={{ padding: '24px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
+             {displayedReminders.map(r => (
+               <div key={r.id} className="card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '24px', padding: '20px', minHeight: 160, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                     <div style={{ fontSize: '0.7rem', color: 'var(--accent-light)', fontWeight: 800, marginBottom: 8, textTransform: 'uppercase' }}>{new Date(r.remind_at).toLocaleDateString()}</div>
+                     <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{r.title}</div>
                   </div>
-                );
-              }
-
-              // GRID VIEW
-              return (
-                <div key={r.id} className={`card ${r.is_done ? 'done' : ''}`} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, background: r.is_done ? 'var(--bg-card)' : 'var(--bg-secondary)', border: r.is_done ? '1px solid var(--border)' : '1px solid var(--border-active)', minHeight: 180, position: 'relative' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '1.6rem' }}>{CAT_EMOJIS[r.category] || '📌'}</div>
-                    <button onClick={() => deleteReminder(r.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
-                    </button>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                     {new Date(r.remind_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
-                  
-                  <div style={{ flex: 1 }}>
-                    <div className="reminder-title" style={{ fontSize: '0.95rem', fontWeight: 700, color: r.is_done ? 'var(--text-muted)' : 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.title}</div>
-                  </div>
-
-                  <div style={{ marginTop: 'auto' }}>
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-                       <div style={{ color: !r.is_done && isOverdue ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                          {date}
-                        </div>
-                        <div style={{ color: 'var(--accent-light)', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                          {time}
-                        </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => toggleDone(r)}
-                      style={{ width: '100%', background: r.is_done ? 'var(--accent-dim)' : 'var(--accent-grad)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', cursor: 'pointer', padding: '8px 0', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                      {r.is_done ? 'Completed' : 'Do It Now'}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+               </div>
+             ))}
           </div>
         )}
       </div>
 
+      <BottomNav />
+
+      {/* Add Modal */}
       {showAdd && (
         <div className="overlay" onClick={() => setShowAdd(false)}>
-          <div className="sheet" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-primary)', borderTop: '2px solid var(--accent-light)' }}>
-            <div className="sheet-handle" style={{ background: 'var(--accent-dim)', width: 40, height: 4 }} />
-            <div className="sheet-title" style={{ fontSize: '1.4rem', textAlign: 'center', marginBottom: 24 }}>New Reminder</div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+           <div className="sheet" onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: '32px 32px 0 0', padding: '32px 24px' }}>
+              <div className="sheet-handle" style={{ background: '#EEE' }} />
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, textAlign: 'center', marginBottom: 24 }}>New Reminder</h2>
               <div className="form-group">
-                <input id="reminder-title" type="text" className="input" placeholder="What should I remind you about? *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus style={{ fontSize: '1.1rem', padding: '16px' }} />
+                 <input type="text" className="input" placeholder="What should I remind you? *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus />
               </div>
-              
-              <div className="form-group">
-                <textarea className="textarea" placeholder="Add some notes (optional)..." value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 20 }}>
+                 <div className="form-group">
+                    <label className="form-label">Date</label>
+                    <input type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+                 </div>
+                 <div className="form-group">
+                    <label className="form-label">Time</label>
+                    <input type="time" className="input" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+                 </div>
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Set Date</label>
-                  <input type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Set Time</label>
-                  <input type="time" className="input" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <div className="chips" style={{ flexWrap: 'wrap', gap: 8 }}>
-                  {CATEGORIES.map(c => (
-                    <button key={c} className={`chip ${form.category === c ? 'active' : ''}`} onClick={() => setForm(f => ({ ...f, category: c }))}>
-                      {CAT_EMOJIS[c]} {c}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>{error}</p>}
-              
-              <button id="add-reminder-submit" className="btn btn-primary" onClick={addReminder} disabled={saving} style={{ height: 56, fontSize: '1rem' }}>
-                {saving ? <span className="spinner" /> : 'Set Reminder'}
-              </button>
-            </div>
-          </div>
+              <button className="btn btn-primary" onClick={addReminder} style={{ marginTop: 32, height: 56, borderRadius: '20px' }}>Set Reminder</button>
+           </div>
         </div>
       )}
-
-      <BottomNav />
     </div>
   );
 }
