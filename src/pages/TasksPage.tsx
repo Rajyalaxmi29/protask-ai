@@ -1,235 +1,332 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import AppHeader from '../components/AppHeader';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Plus, Search, Menu, 
+  CheckCircle2, Clock, Trash2, 
+  Filter, Calendar, X, Flag, AlignLeft
+} from 'lucide-react';
 import BottomNav from '../components/BottomNav';
-import { supabase } from '../lib/supabase';
 import { persistentData } from '../lib/persistentData';
-import type { Task, Priority, TaskStatus } from '../lib/supabase';
 
-const PRIORITIES: Priority[] = ['low', 'medium', 'high'];
-const STATUSES: TaskStatus[] = ['todo', 'in_progress', 'done'];
-
-const PRIORITY_ICON: Record<Priority, string> = { low: '📗', medium: '📒', high: '📕' };
-
-function formatTime(iso?: string) {
-  if (!iso) return 'No Time';
-  const d = new Date(iso);
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-}
+const PRIORITIES = [
+  { label: 'High', color: '#EF4444' },
+  { label: 'Medium', color: '#F59E0B' },
+  { label: 'Low', color: '#6C4CF1' },
+];
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | TaskStatus>('all');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [viewDate, setViewDate] = useState(new Date());
-  const [form, setForm] = useState({ 
-    title: '', 
-    description: '', 
-    priority: 'medium' as Priority, 
-    date: new Date().toISOString().split('T')[0],
-    time: '09:00'
-  });
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [todoCount, setTodoCount] = useState(0);
+  const [doneCount, setDoneCount] = useState(0);
+  
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newPriority, setNewPriority] = useState('Medium');
+  const [newNote, setNewNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Date strip logic
-  const dateStrip = useMemo(() => {
-    const dates = [];
-    const today = new Date();
-    for (let i = -2; i < 5; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + i);
-        dates.push({
-            date: d.toISOString().split('T')[0],
-            day: d.toLocaleDateString('en-US', { weekday: 'short' }),
-            num: d.getDate(),
-            month: d.toLocaleDateString('en-US', { month: 'short' })
-        });
+  useEffect(() => { loadTasks(); }, []);
+  
+  useEffect(() => {
+    if (showModal) setTimeout(() => inputRef.current?.focus(), 100);
+  }, [showModal]);
+
+  const loadTasks = async () => {
+    try {
+      const userId = await persistentData.getUserId();
+      if (!userId) return;
+      const records = await persistentData.get<any>('tasks', userId);
+      setTasks(records);
+      setTodoCount(records.filter((t: any) => !t.done).length);
+      setDoneCount(records.filter((t: any) => t.done).length);
+    } catch (e) {
+      console.error('Failed to load tasks', e);
     }
-    return dates;
-  }, []);
+  };
 
-  // Calendar logic
-  const calendarDays = useMemo(() => {
-    const year = viewDate.getFullYear();
-    const month = viewDate.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let i = 1; i <= daysInMonth; i++) {
-        const d = new Date(year, month, i);
-        days.push({ num: i, date: d.toISOString().split('T')[0] });
-    }
-    return days;
-  }, [viewDate]);
+  const openModal = () => {
+    setNewTitle(''); setNewPriority('Medium'); setNewNote('');
+    setShowModal(true);
+  };
 
-  async function load() {
-    const userId = await persistentData.getUserId();
-    if (!userId) { setLoading(false); return; }
-    const data = await persistentData.get<Task>('tasks', userId);
-    setTasks(data);
-    setLoading(false);
-  }
-
-  useEffect(() => { load(); }, []);
-
-  const displayed = useMemo(() => {
-    const dayTasks = tasks.filter(t => t.due_date?.startsWith(selectedDate) || t.created_at.startsWith(selectedDate));
-    return filter === 'all' ? dayTasks : dayTasks.filter(t => t.status === filter);
-  }, [tasks, selectedDate, filter]);
-
-  const addTask = async () => {
-    if (!form.title.trim()) { setError('Title is required.'); return; }
+  const handleAdd = async () => {
+    if (!newTitle.trim()) return;
     setSaving(true);
-    const userId = await persistentData.getUserId();
-    const dateTime = `${form.date}T${form.time}:00`;
-    const newTask = { user_id: userId, title: form.title.trim(), description: form.description || null, priority: form.priority, status: 'todo', due_date: dateTime, created_at: new Date().toISOString() };
-    const saved = await persistentData.mutate('tasks', 'INSERT', newTask);
-    setTasks(prev => [saved as Task, ...prev]);
-    setShowAdd(false);
-    setSaving(false);
+    try {
+      const userId = await persistentData.getUserId();
+      if (!userId) return;
+      await persistentData.mutate('tasks', 'INSERT', {
+        user_id: userId,
+        title: newTitle.trim(),
+        priority: newPriority,
+        note: newNote.trim() || null,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        done: false,
+        created_at: new Date().toISOString()
+      });
+      setShowModal(false);
+      loadTasks();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const toggleStatus = async (task: Task) => {
-    const newStatus: TaskStatus = task.status === 'done' ? 'todo' : 'done';
-    const updated = await persistentData.mutate('tasks', 'UPDATE', { ...task, status: newStatus });
-    setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
+  const toggleTask = async (task: any) => {
+    await persistentData.mutate('tasks', 'UPDATE', { ...task, done: !task.done });
+    loadTasks();
   };
 
-  const deleteTask = async (id: string) => {
-    if (!window.confirm('Delete this task?')) return;
-    await persistentData.mutate('tasks', 'DELETE', { id });
-    setTasks(prev => prev.filter(t => t.id !== id));
+  const removeTask = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await persistentData.mutate('tasks', 'DELETE', { id }, id);
+    loadTasks();
   };
+
+  const priorityColor = PRIORITIES.find(p => p.label === newPriority)?.color || 'var(--accent)';
 
   return (
-    <div className="page" style={{ background: '#F8F9FD' }}>
-      <AppHeader
-        title="Today's Tasks"
-        showBack
-        showTheme
-        rightContent={
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button 
-                onClick={() => setShowCalendar(!showCalendar)}
-                style={{ background: '#fff', border: '1px solid var(--border)', padding: '8px 14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', cursor: 'pointer', height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                Day ▾
-            </button>
-            <button 
-                onClick={() => setShowAdd(true)} 
-                style={{ width: 40, height: 40, borderRadius: '14px', background: 'var(--accent-grad)', border: 'none', color: '#fff', fontSize: '1.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px var(--accent-glow)' }}>
-                +
-            </button>
-          </div>
-        }
-      />
+    <div className="page" style={{ background: '#000' }}>
+      {/* Header */}
+      <header style={{ 
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+        padding: '20px', position: 'sticky', top: 0, background: 'rgba(0,0,0,0.8)', 
+        backdropFilter: 'blur(10px)', zIndex: 100 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Menu size={20} />
+          <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>Tasks Core</span>
+        </div>
+        <div style={{ display: 'flex', gap: 20, color: 'var(--text-secondary)' }}>
+          <Search size={18} />
+          <Filter size={18} />
+        </div>
+      </header>
 
-      <div className="page-content" style={{ padding: '0px' }}>
-        {/* Full Calendar Overlay Style Dropdown */}
-        {showCalendar && (
-          <div style={{ padding: '24px', background: '#FFF', borderBottom: '1px solid #EEE', animation: 'slideDown 0.3s ease-out' }}>
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900 }}>{viewDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</h3>
-                <div style={{ display: 'flex', gap: 16 }}>
-                   <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1))} style={{ background: 'none', border: 'none', fontSize: '1rem', color: '#AAA' }}>❮</button>
-                   <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1))} style={{ background: 'none', border: 'none', fontSize: '1rem', color: '#AAA' }}>❯</button>
-                </div>
-             </div>
-             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, textAlign: 'center' }}>
-                {['S','M','T','W','T','F','S'].map(d => <div key={d} style={{ fontSize: '0.75rem', fontWeight: 800, color: '#CCC' }}>{d}</div>)}
-                {calendarDays.map((d, i) => (
-                   <div key={i} onClick={() => { if(d) { setSelectedDate(d.date); setShowCalendar(false); } }} style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 700, background: d?.date === selectedDate ? 'var(--accent-grad)' : 'none', color: d?.date === selectedDate ? '#fff' : '#111', borderRadius: '50%', opacity: d ? 1 : 0, cursor: 'pointer' }}>
-                      {d?.num}
-                   </div>
-                ))}
-             </div>
+      <div className="page-content" style={{ padding: '20px' }}>
+        {/* Counter */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 32 }}>
+          <div className="card" style={{ padding: '24px' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--accent)', marginBottom: 8 }}>TODO</div>
+            <div style={{ fontSize: '2rem', fontWeight: 900 }}>{todoCount}</div>
           </div>
-        )}
-
-        {/* Date Strip */}
-        <div style={{ padding: '20px', overflowX: 'auto', display: 'flex', gap: 12, scrollbarWidth: 'none' }} className="chips">
-           {dateStrip.map(d => (
-             <div key={d.date} onClick={() => setSelectedDate(d.date)} style={{ flexShrink: 0, width: 64, height: 100, background: selectedDate === d.date ? 'var(--accent-grad)' : '#fff', border: selectedDate === d.date ? 'none' : '1px solid #EEE', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s ease', cursor: 'pointer', boxShadow: selectedDate === d.date ? '0 8px 20px rgba(165,106,189,0.3)' : 'none' }}>
-                <div style={{ fontSize: '0.7rem', color: selectedDate === d.date ? 'rgba(255,255,255,0.7)' : '#AAA', marginBottom: 4 }}>{d.month}</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 900, color: selectedDate === d.date ? '#fff' : '#111' }}>{d.num}</div>
-                <div style={{ fontSize: '0.7rem', color: selectedDate === d.date ? 'rgba(255,255,255,0.7)' : '#AAA', marginTop: 4 }}>{d.day}</div>
-             </div>
-           ))}
+          <div className="card" style={{ padding: '24px' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: 8 }}>DONE</div>
+            <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--text-muted)' }}>{doneCount}</div>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div style={{ padding: '0 20px 20px', display: 'flex', gap: 10, overflowX: 'auto' }} className="chips">
-           {(['all', 'in_progress', 'todo', 'done'] as const).map(f => (
-             <button key={f} onClick={() => setFilter(f)} className={`chip ${filter === f ? 'active' : ''}`} style={{ background: filter === f ? 'var(--accent-grad)' : 'rgba(165,106,189,0.1)', color: filter === f ? '#fff' : 'var(--accent-light)', border: 'none', padding: '10px 24px', borderRadius: '15px', fontWeight: 800, fontSize: '0.75rem', textTransform: 'capitalize' }}>
-                {f.replace('_', ' ')}
-             </button>
-           ))}
-        </div>
+        {/* Task List */}
+        <div style={{ marginBottom: 100 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '1.5px' }}>PRIORITY SEQUENCE</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 800 }}>
+              <Calendar size={14} /> TODAY
+            </div>
+          </div>
 
-        {/* Tasks List */}
-        <div style={{ padding: '0 20px 100px' }}>
-           {loading ? (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 120, borderRadius: '24px' }} />)}
-             </div>
-           ) : displayed.length === 0 ? (
-             <div className="empty-state">📅 No tasks for this day</div>
-           ) : (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {displayed.map(task => {
-                  const isDone = task.status === 'done';
-                  return (
-                    <div key={task.id} className="card" onClick={() => toggleStatus(task)} style={{ background: '#fff', border: '1px solid #F0F0F0', borderRadius: '24px', padding: '20px', position: 'relative', cursor: 'pointer' }}>
-                       <div style={{ position: 'absolute', top: 20, right: 20, fontSize: '1.2rem' }}>{PRIORITY_ICON[task.priority ?? 'medium']}</div>
-                       <div style={{ fontSize: '0.7rem', color: '#AAA', marginBottom: 8, fontWeight: 600 }}>{task.description?.slice(0, 30) || 'Task Management'}</div>
-                       <div style={{ fontSize: '1.05rem', fontWeight: 800, color: isDone ? '#AAA' : '#2D3139', textDecoration: isDone ? 'line-through' : 'none', marginBottom: 20 }}>{task.title}</div>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#888', fontSize: '0.8rem', fontWeight: 700 }}>
-                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                             {formatTime(task.due_date || task.created_at)}
-                          </div>
-                          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                             <div style={{ padding: '4px 12px', background: isDone ? 'rgba(74, 222, 128, 0.1)' : 'rgba(37, 99, 235, 0.05)', color: isDone ? '#4ADE80' : 'var(--accent-light)', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>
-                                {isDone ? '(Done)' : (task.status === 'in_progress' ? '(In Progress)' : '(To-Do)')}
-                             </div>
-                             <button 
-                                onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                                style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', padding: '4px', display: 'flex' }}
-                                aria-label="Delete Task"
-                             >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                             </button>
-                          </div>
-                       </div>
+          <div className="flex flex-col gap-3">
+            <AnimatePresence>
+              {tasks.map((task) => (
+                <motion.div
+                  key={task.id} layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="card"
+                  onClick={() => toggleTask(task)}
+                  style={{ 
+                    padding: '20px', cursor: 'pointer', position: 'relative', overflow: 'hidden',
+                    background: task.done ? 'rgba(0,255,178,0.03)' : 'var(--bg-card)',
+                    borderColor: task.done ? 'var(--accent)' : 'var(--border)',
+                  }}
+                >
+                  {task.priority === 'High' && !task.done && (
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: '#EF4444' }} />
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ 
+                      width: 28, height: 28, borderRadius: '8px', flexShrink: 0,
+                      border: `2px solid ${task.done ? 'var(--accent)' : 'var(--border)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: task.done ? 'var(--accent)' : 'transparent',
+                    }}>
+                      {task.done && <CheckCircle2 size={16} color="#000" />}
                     </div>
-                  );
-                })}
-             </div>
-           )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ 
+                        fontSize: '1.05rem', fontWeight: 800,
+                        color: task.done ? 'var(--text-muted)' : 'var(--text-primary)',
+                        textDecoration: task.done ? 'line-through' : 'none',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                      }}>{task.title}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                        <span style={{ 
+                          fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                          background: `${PRIORITIES.find(p=>p.label===task.priority)?.color || '#888'}20`,
+                          color: PRIORITIES.find(p=>p.label===task.priority)?.color || '#888'
+                        }}>{(task.priority||'Medium').toUpperCase()}</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Clock size={11} /> {task.time || '12:00 PM'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      className="icon-btn"
+                      style={{ background: 'transparent', zIndex: 2, position: 'relative' }}
+                      onClick={(e) => removeTask(task.id, e)}
+                    >
+                      <Trash2 size={16} color="var(--text-muted)" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {tasks.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                No tasks yet. Tap + to add one.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <BottomNav />
+      {/* FAB */}
+      <motion.button
+        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+        onClick={openModal}
+        style={{ 
+          position: 'fixed', bottom: 100, right: 24,
+          width: 56, height: 56, borderRadius: '20px',
+          background: 'var(--accent)', border: 'none',
+          color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 8px 24px var(--accent-glow)', zIndex: 100, cursor: 'pointer'
+        }}
+      >
+        <Plus size={28} />
+      </motion.button>
 
-      {/* Add Modal */}
-      {showAdd && (
-        <div className="overlay" onClick={() => setShowAdd(false)}>
-           <div className="sheet" onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: '32px 32px 0 0', padding: '32px 24px' }}>
-              <div className="sheet-handle" style={{ background: '#EEE' }} />
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, textAlign: 'center', marginBottom: 24 }}>New Task</h2>
-              <div className="form-group"><input type="text" className="input" placeholder="Task title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus /></div>
-              <div className="form-group" style={{ marginTop: 20 }}><label className="form-label">Task Group / Description</label><input type="text" className="input" placeholder="e.g. Design Sprint" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 20 }}>
-                 <div className="form-group"><label className="form-label">Date</label><input type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
-                 <div className="form-group"><label className="form-label">Time</label><input type="time" className="input" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} /></div>
+      {/* Custom Add Task Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowModal(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', zIndex: 300 }}
+            />
+
+            {/* Modal Sheet */}
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              style={{ 
+                position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 301,
+                background: '#0d0d0d', borderTop: '1px solid var(--border)',
+                borderRadius: '28px 28px 0 0',
+                padding: '20px 24px 100px',
+                maxHeight: '85vh', overflowY: 'auto'
+              }}
+            >
+              {/* Handle */}
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 24px' }} />
+
+              {/* Header Row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 900 }}>New Task</h2>
+                <button onClick={() => setShowModal(false)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <X size={16} color="var(--text-muted)" />
+                </button>
               </div>
-              <button className="btn btn-primary" onClick={addTask} style={{ marginTop: 32, height: 56, borderRadius: '20px' }}>Create Task</button>
-           </div>
-        </div>
-      )}
+
+              {/* Task Title */}
+              <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', marginBottom: 16 }}>
+                <AlignLeft size={16} color="var(--text-muted)" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="What needs to be done?"
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                  style={{ 
+                    flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                    fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)'
+                  }}
+                />
+              </div>
+
+              {/* Priority Selector */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1.5px', marginBottom: 12 }}>PRIORITY</div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {PRIORITIES.map(p => (
+                    <motion.button
+                      key={p.label}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setNewPriority(p.label)}
+                      style={{ 
+                        flex: 1, padding: '12px 8px', borderRadius: '14px',
+                        border: `1px solid ${newPriority === p.label ? p.color : 'var(--border)'}`,
+                        background: newPriority === p.label ? `${p.color}18` : 'var(--bg-card)',
+                        color: newPriority === p.label ? p.color : 'var(--text-muted)',
+                        fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <Flag size={13} /> {p.label}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Note */}
+              <div className="card" style={{ padding: '14px 18px', marginBottom: 24 }}>
+                <textarea
+                  placeholder="Add a note (optional)"
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                  rows={2}
+                  style={{ 
+                    width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                    resize: 'none', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)'
+                  }}
+                />
+              </div>
+
+              {/* Submit */}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleAdd}
+                disabled={saving || !newTitle.trim()}
+                style={{ 
+                  width: '100%', padding: '17px', borderRadius: '18px',
+                  background: newTitle.trim() ? priorityColor : 'var(--bg-card)',
+                  border: 'none', color: newTitle.trim() ? '#fff' : 'var(--text-muted)',
+                  fontSize: '1rem', fontWeight: 900, cursor: newTitle.trim() ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  boxShadow: newTitle.trim() ? `0 8px 24px ${priorityColor}40` : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {saving
+                  ? <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                  : <><Plus size={20} /> Add Task</>
+                }
+              </motion.button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <BottomNav />
     </div>
   );
 }

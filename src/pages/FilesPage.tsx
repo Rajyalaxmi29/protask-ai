@@ -1,366 +1,482 @@
-import React, { useEffect, useState, useRef } from 'react';
-import AppHeader from '../components/AppHeader';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  File, Folder, Plus, Search, 
+  Download, Trash2, Cloud,
+  Image as ImageIcon, FileText, Video, Music,
+  HardDrive, Menu, Filter, MoreVertical,
+  Upload, Link, X, ExternalLink, Globe
+} from 'lucide-react';
 import BottomNav from '../components/BottomNav';
-import { supabase } from '../lib/supabase';
-import type { FileRecord } from '../lib/supabase';
-
-const FOLDER_COLORS: Record<string, string> = {
-  General: '#2563eb', Work: '#f59e0b', Personal: '#8b5cf6',
-  Images: '#ec4899', Documents: '#14b8a6', Downloads: '#f97316',
-};
-
-function fileTypeIcon(name?: string): string {
-  const ext = name?.split('.').pop()?.toLowerCase() || '';
-  if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) return '🖼️';
-  if (ext === 'pdf') return '📄';
-  if (['doc','docx','txt','md'].includes(ext)) return '📝';
-  if (['xls','xlsx','csv'].includes(ext)) return '📊';
-  if (['ppt','pptx'].includes(ext)) return '📑';
-  if (['zip','tar','rar','gz'].includes(ext)) return '🗜️';
-  if (['mp4','mov','avi','mkv'].includes(ext)) return '🎬';
-  if (['mp3','wav','aac','flac'].includes(ext)) return '🎵';
-  return '📁';
-}
-
-function formatSize(bytes?: number): string {
-  if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-const FOLDERS = ['General', 'Work', 'Personal', 'Images', 'Documents', 'Downloads'];
+import { persistentData } from '../lib/persistentData';
 
 export default function FilesPage() {
-  const [files, setFiles] = useState<FileRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeFolder, setActiveFolder] = useState('All');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showAdd, setShowAdd] = useState(false);
-
-  // Form state
-  const [tab, setTab] = useState<'upload' | 'link'>('upload');
-  const [folder, setFolder] = useState('General');
-  const [url, setUrl] = useState('');
-  const [linkName, setLinkName] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState('');
+  const [files, setFiles] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
 
-  async function load() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) { setLoading(false); return; }
-    const { data, error } = await supabase.from('files').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
-    setFiles((error ? [] : data || []) as FileRecord[]);
-    setLoading(false);
-  }
+  // Modal state
+  const [showPicker, setShowPicker] = useState(false);   // "upload or url" chooser
+  const [showUrlModal, setShowUrlModal] = useState(false);
+  const [urlValue, setUrlValue] = useState('');
+  const [urlTitle, setUrlTitle] = useState('');
+  const [savingUrl, setSavingUrl] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadFiles(); }, []);
 
-  const folders = ['All', ...FOLDERS];
-  const displayed = activeFolder === 'All' ? files : files.filter(f => f.folder === activeFolder);
-  const folderCounts = files.reduce((acc, f) => { acc[f.folder] = (acc[f.folder] || 0) + 1; return acc; }, {} as Record<string, number>);
-
-  const deleteFile = async (f: FileRecord) => {
-    // If stored in Supabase Storage, remove from bucket too
-    if (f.url?.includes('supabase') && f.url?.includes('/storage/')) {
-      const path = f.url.split('/storage/v1/object/public/files/')[1];
-      if (path) await supabase.storage.from('files').remove([path]);
-    }
-    await supabase.from('files').delete().eq('id', f.id);
-    setFiles(prev => prev.filter(x => x.id !== f.id));
-  };
-
-  const resetForm = () => {
-    setSelectedFile(null);
-    setUrl('');
-    setLinkName('');
-    setFolder('General');
-    setError('');
-    setTab('upload');
-  };
-
-  // Upload file to Supabase Storage
-  const handleUpload = async () => {
-    if (tab === 'upload' && !selectedFile) { setError('Please select a file.'); return; }
-    if (tab === 'link' && !url.trim()) { setError('Please enter a URL.'); return; }
-    if (tab === 'link' && !linkName.trim()) { setError('Please enter a name for the link.'); return; }
-
-    setUploading(true);
-    setError('');
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) { setError('Not logged in.'); setUploading(false); return; }
-
+  const loadFiles = async () => {
     try {
-      if (tab === 'upload' && selectedFile) {
-        const ext = selectedFile.name.split('.').pop() || '';
-        // Sanitize the filename to avoid 400 bad request with spaces/special chars in Supabase Storage
-        const safeName = selectedFile.name.replace(/[^a-zA-Z0-9.\-]/g, '_').toLowerCase();
-        const path = `${session.user.id}/${Date.now()}_${safeName}`;
-
-        const { data: storageData, error: storageErr } = await supabase.storage.from('files').upload(path, selectedFile, { upsert: false });
-        
-        if (storageErr) {
-          console.error("Storage upload error detailed:", storageErr);
-          if (storageErr.message?.includes('Bucket not found') || storageErr.message?.includes('bucket')) {
-            setError('Storage bucket not set up. Please create a "files" bucket in Supabase Storage first.');
-            setUploading(false); return;
-          }
-          if (storageErr.message?.includes('row violates row-level security policy') || storageErr.message?.includes('RLS')) {
-            setError('RLS Policy blocked upload. Please run the provided SQL in Supabase to allow authenticated users to upload to "files".');
-            setUploading(false); return;
-          }
-          throw new Error(`Storage error: ${storageErr.message}`);
-        }
-
-        const { data: urlData } = supabase.storage.from('files').getPublicUrl(path);
-        const { data, error: dbErr } = await supabase.from('files').insert({
-          user_id: session.user.id,
-          name: selectedFile.name,
-          type: selectedFile.type || ext || null,
-          size: selectedFile.size,
-          url: urlData.publicUrl,
-          folder,
-        }).select().single();
-        if (dbErr) throw dbErr;
-        setFiles(prev => [data as FileRecord, ...prev]);
-
-      } else {
-        // Link tab
-        const { data, error: dbErr } = await supabase.from('files').insert({
-          user_id: session.user.id,
-          name: linkName.trim(),
-          url: url.trim(),
-          folder,
-        }).select().single();
-        if (dbErr) throw dbErr;
-        setFiles(prev => [data as FileRecord, ...prev]);
-      }
-
-      resetForm();
-      setShowAdd(false);
-    } catch (e: any) {
-      setError(e.message || 'Upload failed.');
+      const userId = await persistentData.getUserId();
+      if (!userId) return;
+      const records = await persistentData.get<any>('files', userId);
+      setFiles(records);
+    } catch (e) {
+      console.error('Failed to load files', e);
     }
-    setUploading(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const f = e.dataTransfer.files[0];
-    if (f) setSelectedFile(f);
+  const readFileAsDataURL = (file: File) => new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string || '');
+    reader.readAsDataURL(file);
+  });
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const userId = await persistentData.getUserId();
+      if (!userId) return;
+
+      const uploadPromises = Array.from(e.target.files).map(async (f: File) => {
+        let tStr = 'DOC';
+        if (f.type.startsWith('image')) tStr = 'IMG';
+        else if (f.type.startsWith('video')) tStr = 'VID';
+        else if (f.type.startsWith('text')) tStr = 'TXT';
+        else if (f.type.startsWith('audio')) tStr = 'AUD';
+        else if (f.name.endsWith('.pdf')) tStr = 'PDF';
+        
+        let sizeStr = (f.size / 1024 / 1024).toFixed(1) + ' MB';
+        if (f.size < 1024 * 1024) sizeStr = (f.size / 1024).toFixed(1) + ' KB';
+
+        const content = await readFileAsDataURL(f);
+
+        const fileData = {
+          user_id: userId,
+          name: f.name,
+          type: tStr,
+          size: sizeStr,
+          realSize: f.size,
+          source: 'upload',
+          created_at: new Date().toISOString()
+        };
+
+        try {
+          const result = await persistentData.mutate('files', 'INSERT', fileData);
+          if (result && result.id) {
+            try { localStorage.setItem(`file_content_${result.id}`, content); } 
+            catch (q) { console.warn('Storage quota full'); }
+          }
+        } catch (err) { console.error('Upload failed', err); }
+      });
+
+      await Promise.all(uploadPromises);
+      loadFiles();
+      setShowPicker(false);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  const handleSaveUrl = async () => {
+    if (!urlValue.trim()) return;
+    setSavingUrl(true);
+    try {
+      const userId = await persistentData.getUserId();
+      if (!userId) return;
+
+      // Try to detect what kind of URL
+      const lower = urlValue.toLowerCase();
+      let tStr = 'URL';
+      if (lower.includes('youtube') || lower.includes('youtu.be')) tStr = 'YT';
+      else if (lower.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/)) tStr = 'IMG';
+      else if (lower.match(/\.pdf(\?|$)/)) tStr = 'PDF';
+      else if (lower.match(/\.(mp4|mov|webm)(\?|$)/)) tStr = 'VID';
+      else if (lower.match(/github\.com/)) tStr = 'GH';
+      else if (lower.match(/docs\.google/)) tStr = 'DOC';
+
+      const displayName = urlTitle.trim() || new URL(urlValue.startsWith('http') ? urlValue : 'https://' + urlValue).hostname;
+
+      const fileData = {
+        user_id: userId,
+        name: displayName,
+        type: tStr,
+        size: '—',
+        url: urlValue.startsWith('http') ? urlValue : 'https://' + urlValue,
+        source: 'url',
+        created_at: new Date().toISOString()
+      };
+
+      await persistentData.mutate('files', 'INSERT', fileData);
+      setShowUrlModal(false);
+      setShowPicker(false);
+      setUrlValue('');
+      setUrlTitle('');
+      loadFiles();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingUrl(false);
+    }
+  };
+
+  const viewDocument = (file: any) => {
+    // URL-type file → open directly
+    if (file.source === 'url' && file.url) {
+      window.open(file.url, '_blank');
+      return;
+    }
+
+    const localContent = localStorage.getItem(`file_content_${file.id}`);
+    if (!localContent) {
+      alert("File content not cached. Please re-upload.");
+      return;
+    }
+    try {
+      fetch(localContent)
+        .then(res => res.blob())
+        .then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          if (['IMG', 'PDF', 'TXT'].includes(file.type)) {
+            window.open(blobUrl, '_blank');
+          } else {
+            const a = document.createElement('a');
+            a.href = blobUrl; a.download = file.name; a.click();
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          }
+        });
+    } catch (e) {
+      const a = document.createElement('a');
+      a.href = localContent; a.download = file.name; a.click();
+    }
+  };
+
+  const removeFile = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await persistentData.mutate('files', 'DELETE', { id }, id);
+    localStorage.removeItem(`file_content_${id}`);
+    loadFiles();
+  };
+
+  const getIconForType = (type: string, source: string) => {
+    if (source === 'url') return Globe;
+    switch(type) {
+      case 'IMG': return ImageIcon;
+      case 'VID': return Video;
+      case 'AUD': return Music;
+      case 'PDF': return FileText;
+      case 'TXT': return FileText;
+      case 'YT': return Video;
+      case 'GH': return File;
+      case 'DOC': return FileText;
+      default: return File;
+    }
+  };
+
+  const getTypeColor = (type: string, source: string) => {
+    if (source === 'url') return '#6C4CF1';
+    switch(type) {
+      case 'IMG': return '#3B82F6';
+      case 'VID': return '#EF4444';
+      case 'PDF': return '#F59E0B';
+      case 'AUD': return '#10B981';
+      default: return 'var(--text-muted)';
+    }
+  };
+
+  const totalSimulatedUsage = 2.4 * 1024 * 1024 * 1024;
+  const dynamicUsage = files.filter(f => f.source !== 'url').reduce((acc, f) => acc + (f.realSize || 0), 0) + totalSimulatedUsage;
+  const gbUsed = (dynamicUsage / (1024 * 1024 * 1024)).toFixed(1);
+  const percentage = Math.min(Math.round(((dynamicUsage / (1024 * 1024 * 1024)) / 5.0) * 100), 100);
+
+  const uploadedFiles = files.filter(f => f.source !== 'url');
+  const linkedUrls = files.filter(f => f.source === 'url');
 
   return (
-    <div className="page">
-      <AppHeader
-        title="Files"
-        showBack
-        showTheme
-        rightContent={
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button 
-                className="icon-btn" 
-                onClick={() => setViewMode(v => v === 'grid' ? 'list' : 'grid')} 
-                style={{ width: 40, height: 40, borderRadius: '14px', background: '#fff' }}>
-                {viewMode === 'grid' 
-                  ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                  : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                }
-            </button>
-            <button 
-                className="icon-btn" 
-                onClick={() => { resetForm(); setShowAdd(true); }} 
-                style={{ width: 40, height: 40, borderRadius: '14px', background: 'var(--accent-grad)', border: 'none', color: '#fff', boxShadow: '0 4px 12px var(--accent-glow)' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-            </button>
+    <div className="page" style={{ background: '#000' }}>
+      <header style={{ 
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+        padding: '20px', position: 'sticky', top: 0, background: 'rgba(0,0,0,0.85)', 
+        backdropFilter: 'blur(12px)', zIndex: 100 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Menu size={20} />
+          <div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px' }}>STORAGE</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 900 }}>Neural Vault</div>
           </div>
-        }
-      />
+        </div>
+        <div style={{ display: 'flex', gap: 20, color: 'var(--text-secondary)' }}>
+          <Search size={18} />
+          <Filter size={18} />
+        </div>
+      </header>
 
-      <div className="page-content">
-        {/* Stats */}
-        <div className="stats-row" style={{ marginBottom: 16 }}>
-          <div className="stat-card"><div className="stat-card__value">{files.length}</div><div className="stat-card__label">Total</div></div>
-          <div className="stat-card stat-card--normal"><div className="stat-card__value" style={{ color: 'var(--accent-light)' }}>{Object.keys(folderCounts).length}</div><div className="stat-card__label">Folders</div></div>
-          <div className="stat-card stat-card--normal"><div className="stat-card__value" style={{ color: 'var(--success)' }}>{files.filter(f => f.url).length}</div><div className="stat-card__label">With Links</div></div>
+      <div className="page-content" style={{ padding: '20px', paddingBottom: 100 }}>
+
+        {/* Storage Bar */}
+        <div className="card" style={{ padding: '28px 24px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(0,255,178,0.1)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Cloud size={22} />
+              </div>
+              <div>
+                <div style={{ fontSize: '1rem', fontWeight: 900 }}>Storage Status</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>{gbUsed} GB of 5.0 GB used</div>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--accent)' }}>{percentage}%</span>
+          </div>
+          <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }}>
+            <div style={{ width: `${percentage}%`, transition: 'width 0.5s ease', height: '100%', background: 'var(--accent)', borderRadius: 3, boxShadow: '0 0 10px var(--accent-glow)' }} />
+          </div>
+          {/* Quick stats */}
+          <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Upload size={12} color="var(--accent)" />
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>{uploadedFiles.length} uploaded</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Link size={12} color="#6C4CF1" />
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>{linkedUrls.length} links</span>
+            </div>
+          </div>
         </div>
 
-        {/* Folder chips */}
-        <div className="chips" style={{ marginBottom: 16 }}>
-          {folders.map(f => (
-            <button key={f} className={`chip ${activeFolder === f ? 'active' : ''}`} onClick={() => setActiveFolder(f)}>
-              {f}{f !== 'All' && folderCounts[f] ? ` (${folderCounts[f]})` : ''}
-            </button>
-          ))}
-        </div>
+        {/* Uploaded Files */}
+        {uploadedFiles.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1.5px', marginBottom: 14 }}>UPLOADED FILES</div>
+            <div className="flex flex-col gap-3">
+              <AnimatePresence>
+                {uploadedFiles.map((file) => {
+                  const FileIcon = getIconForType(file.type, file.source);
+                  const iconColor = getTypeColor(file.type, file.source);
+                  return (
+                    <motion.div
+                      key={file.id}
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }}
+                      className="card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}
+                    >
+                      <div style={{ width: 44, height: 44, borderRadius: '12px', background: `${iconColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <FileIcon size={20} color={iconColor} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</div>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', marginTop: 2 }}>{file.type} · {file.size}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="icon-btn" style={{ background: 'transparent' }} onClick={() => viewDocument(file)}>
+                          <Download size={15} color="var(--text-muted)" />
+                        </button>
+                        <button className="icon-btn" style={{ background: 'transparent' }} onClick={(e) => removeFile(file.id, e)}>
+                          <Trash2 size={15} color="#EF4444" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
 
-        {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: viewMode === 'grid' ? '1fr 1fr' : '1fr', gap: 10 }}>
-            {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 100, borderRadius: 'var(--radius-lg)' }} />)}
+        {/* Saved Links */}
+        {linkedUrls.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1.5px', marginBottom: 14 }}>SAVED LINKS</div>
+            <div className="flex flex-col gap-3">
+              <AnimatePresence>
+                {linkedUrls.map((file) => (
+                  <motion.div
+                    key={file.id}
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }}
+                    className="card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}
+                  >
+                    <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(108,76,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Globe size={20} color="#6C4CF1" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</div>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6C4CF1', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.url}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="icon-btn" style={{ background: 'transparent' }} onClick={() => window.open(file.url, '_blank')}>
+                        <ExternalLink size={15} color="#6C4CF1" />
+                      </button>
+                      <button className="icon-btn" style={{ background: 'transparent' }} onClick={(e) => removeFile(file.id, e)}>
+                        <Trash2 size={15} color="#EF4444" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
           </div>
-        ) : displayed.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state__emoji">📁</div>
-            <div className="empty-state__title">No files here</div>
-            <div className="empty-state__desc">Upload a file or add a link</div>
-            <button className="btn btn-primary" style={{ width: 'auto', padding: '10px 24px', marginTop: 8 }} onClick={() => { resetForm(); setShowAdd(true); }}>Add File</button>
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="file-grid">
-            {displayed.map(f => (
-              <div key={f.id} className="file-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div className="file-icon" style={{ background: `${FOLDER_COLORS[f.folder] || '#2563eb'}20` }}>
-                    <span style={{ fontSize: '1.3rem' }}>{fileTypeIcon(f.name)}</span>
-                  </div>
-                  <button onClick={() => deleteFile(f)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
-                </div>
-                <div>
-                  <div className="file-name">{f.name}</div>
-                  <div className="file-meta">{f.folder}{f.size ? ` · ${formatSize(f.size)}` : ''}</div>
-                </div>
-                {f.url && (
-                  <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-accent)', fontWeight: 600, textDecoration: 'none' }}>
-                    {f.url.includes('supabase') && f.url.includes('/storage/') ? '⬇️ Download' : '🔗 Open link'}
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="card" style={{ padding: '4px 16px' }}>
-            {displayed.map(f => (
-              <div key={f.id} className="file-list-item">
-                <div style={{ width: 38, height: 38, borderRadius: 'var(--radius-md)', background: `${FOLDER_COLORS[f.folder] || '#2563eb'}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>
-                  {fileTypeIcon(f.name)}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{f.folder}{f.size ? ` · ${formatSize(f.size)}` : ''} · {new Date(f.created_at).toLocaleDateString()}</div>
-                </div>
-                {f.url && (
-                  <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-accent)', flexShrink: 0 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                )}
-                <button onClick={() => deleteFile(f)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
-                </button>
-              </div>
-            ))}
+        )}
+
+        {files.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
+            <Cloud size={48} color="var(--text-muted)" style={{ margin: '0 auto 16px', opacity: 0.3 }} />
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Vault is empty</div>
+            <div style={{ fontSize: '0.8rem' }}>Tap + to upload a file or save a link</div>
           </div>
         )}
       </div>
 
-      {/* Add Sheet */}
-      {showAdd && (
-        <div className="overlay" onClick={() => setShowAdd(false)}>
-          <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
-            <div className="sheet-handle" />
-            <div className="sheet-title">Add File</div>
+      <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
 
-            {/* Upload vs Link tabs */}
-            <div className="tabs" style={{ marginBottom: 16 }}>
-              <button className={`tab-btn ${tab === 'upload' ? 'active' : ''}`} onClick={() => { setTab('upload'); setError(''); }}>
-                📤 Upload File
-              </button>
-              <button className={`tab-btn ${tab === 'link' ? 'active' : ''}`} onClick={() => { setTab('link'); setError(''); }}>
-                🔗 Add Link
-              </button>
-            </div>
+      {/* FAB */}
+      <motion.button
+        whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+        onClick={() => setShowPicker(true)}
+        style={{ 
+          position: 'fixed', bottom: 100, right: 24,
+          width: 56, height: 56, borderRadius: '20px',
+          background: 'var(--accent)', border: 'none',
+          color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 8px 24px var(--accent-glow)', zIndex: 100, cursor: 'pointer'
+        }}
+      >
+        <Plus size={28} />
+      </motion.button>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {tab === 'upload' ? (
-                <>
-                  {/* Drag & drop zone */}
-                  <div
-                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      border: `2px dashed ${dragOver ? 'var(--accent-light)' : selectedFile ? 'var(--success)' : 'var(--border)'}`,
-                      borderRadius: 'var(--radius-lg)',
-                      padding: '24px 16px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      background: dragOver ? 'var(--accent-dim)' : selectedFile ? 'rgba(34,197,94,0.05)' : 'var(--bg-input)',
-                      transition: 'all var(--transition-fast)',
-                    }}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      style={{ display: 'none' }}
-                      onChange={e => setSelectedFile(e.target.files?.[0] || null)}
-                    />
-                    {selectedFile ? (
-                      <>
-                        <div style={{ fontSize: '2rem', marginBottom: 8 }}>{fileTypeIcon(selectedFile.name)}</div>
-                        <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{selectedFile.name}</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>{formatSize(selectedFile.size)}</div>
-                        <button onClick={e => { e.stopPropagation(); setSelectedFile(null); }} style={{ marginTop: 8, background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.75rem' }}>Remove</button>
-                      </>
-                    ) : (
-                      <>
-                        <div style={{ fontSize: '2rem', marginBottom: 8 }}>📤</div>
-                        <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>Tap to upload or drag & drop</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>Any file type supported</div>
-                      </>
-                    )}
-                  </div>
-
-                  <div style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 'var(--radius-md)', padding: '10px 14px', fontSize: '0.75rem', color: 'var(--warning)' }}>
-                    ⚠️ File upload requires a <strong>"files"</strong> bucket in Supabase Storage. If not set up, use the <strong>Link tab</strong> instead.
-                  </div>
-                </>
-              ) : (
-                <>
-                  <input
-                    id="link-name"
-                    type="text"
-                    className="input"
-                    placeholder="Name (e.g. Project Report)"
-                    value={linkName}
-                    onChange={e => setLinkName(e.target.value)}
-                    autoFocus
-                  />
-                  <input
-                    id="link-url"
-                    type="url"
-                    className="input"
-                    placeholder="https://... (URL or link)"
-                    value={url}
-                    onChange={e => setUrl(e.target.value)}
-                  />
-                </>
-              )}
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="file-folder">Folder</label>
-                <select id="file-folder" className="select" value={folder} onChange={e => setFolder(e.target.value)}>
-                  {FOLDERS.map(fl => <option key={fl}>{fl}</option>)}
-                </select>
+      {/* ── Option Picker Sheet ── */}
+      <AnimatePresence>
+        {showPicker && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowPicker(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', zIndex: 300 }}
+            />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 301, background: '#0d0d0d', borderTop: '1px solid var(--border)', borderRadius: '28px 28px 0 0', padding: '20px 24px 110px' }}
+            >
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 24px' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 900 }}>Add to Vault</h2>
+                <button onClick={() => setShowPicker(false)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <X size={15} color="var(--text-muted)" />
+                </button>
               </div>
 
-              {error && <p style={{ color: 'var(--danger)', fontSize: '0.82rem', margin: 0 }}>{error}</p>}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {/* Upload File */}
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ padding: '28px 16px', borderRadius: '20px', background: 'rgba(0,255,178,0.06)', border: '1px solid rgba(0,255,178,0.2)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: '100%' }}
+                >
+                  <div style={{ width: 52, height: 52, borderRadius: '16px', background: 'rgba(0,255,178,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Upload size={24} color="var(--accent)" />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--accent)' }}>Upload File</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 4 }}>Images, PDFs, docs</div>
+                  </div>
+                </motion.button>
 
-              <button id="add-file-submit" className="btn btn-primary" onClick={handleUpload} disabled={uploading}>
-                {uploading
-                  ? <><span className="spinner" /> Uploading...</>
-                  : tab === 'upload' ? '📤 Upload File' : '🔗 Save Link'
+                {/* Save URL */}
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { setShowUrlModal(true); setShowPicker(false); }}
+                  style={{ padding: '28px 16px', borderRadius: '20px', background: 'rgba(108,76,241,0.06)', border: '1px solid rgba(108,76,241,0.2)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: '100%' }}
+                >
+                  <div style={{ width: 52, height: 52, borderRadius: '16px', background: 'rgba(108,76,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Link size={24} color="#6C4CF1" />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#6C4CF1' }}>Save Link</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 4 }}>YouTube, GitHub, Docs</div>
+                  </div>
+                </motion.button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── URL Modal ── */}
+      <AnimatePresence>
+        {showUrlModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowUrlModal(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', zIndex: 302 }}
+            />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 303, background: '#0d0d0d', borderTop: '1px solid var(--border)', borderRadius: '28px 28px 0 0', padding: '20px 24px 80px' }}
+            >
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 24px' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 900 }}>Save a Link</h2>
+                <button onClick={() => setShowUrlModal(false)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <X size={15} color="var(--text-muted)" />
+                </button>
+              </div>
+
+              {/* URL Input */}
+              <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', marginBottom: 12 }}>
+                <Globe size={16} color="#6C4CF1" />
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={urlValue}
+                  onChange={e => setUrlValue(e.target.value)}
+                  autoFocus
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              {/* Title Input */}
+              <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', marginBottom: 24 }}>
+                <FileText size={16} color="var(--text-muted)" />
+                <input
+                  type="text"
+                  placeholder="Label (optional — e.g. 'React Docs')"
+                  value={urlTitle}
+                  onChange={e => setUrlTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveUrl()}
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleSaveUrl}
+                disabled={savingUrl || !urlValue.trim()}
+                style={{ 
+                  width: '100%', padding: '17px', borderRadius: '18px', border: 'none',
+                  background: urlValue.trim() ? '#6C4CF1' : 'var(--bg-card)',
+                  color: urlValue.trim() ? '#fff' : 'var(--text-muted)',
+                  fontSize: '1rem', fontWeight: 900, cursor: urlValue.trim() ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  boxShadow: urlValue.trim() ? '0 8px 24px rgba(108,76,241,0.4)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {savingUrl
+                  ? <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                  : <><Link size={18} /> Save Link</>
                 }
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </motion.button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <BottomNav />
     </div>

@@ -1,60 +1,21 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import AppLogo from './AppLogo';
+import { 
+  Home, 
+  Flame, 
+  CheckSquare, 
+  Wallet, 
+  User,
+  Folder
+} from 'lucide-react';
 
 const NAV = [
-  {
-    path: '/dashboard',
-    label: 'Home',
-    icon: (a: boolean) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={a ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-  },
-  {
-    path: '/tasks',
-    label: 'Tasks',
-    icon: (a: boolean) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={a ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="9 11 12 14 22 4" />
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-  },
-  {
-    path: '/reminders',
-    label: 'Reminders',
-    icon: (a: boolean) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={a ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-      </svg>
-    ),
-  },
-  {
-    path: '/expenses',
-    label: 'Finance',
-    icon: (a: boolean) => (
-      <span style={{
-        fontSize: '1.15rem',
-        fontWeight: 900,
-        lineHeight: 1,
-        fontFamily: 'sans-serif',
-        opacity: a ? 1 : 0.55,
-      }}>₹</span>
-    ),
-  },
-  {
-    path: '/files',
-    label: 'Files',
-    icon: (a: boolean) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={a ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
+  { path: '/dashboard', label: 'Home', icon: Home },
+  { path: '/tracker', label: 'Tracker', icon: Flame },
+  { path: '/tasks', label: 'Tasks', icon: CheckSquare },
+  { path: '/expenses', label: 'Finance', icon: Wallet },
+  { path: '/files', label: 'Vault', icon: Folder },
+  { path: '/profile', label: 'Profile', icon: User },
 ];
 
 export default function BottomNav() {
@@ -62,24 +23,65 @@ export default function BottomNav() {
   const { pathname } = useLocation();
 
   return (
-    <nav className="bottom-nav" role="navigation" aria-label="Main navigation">
-      <div className="desktop-logo" style={{ marginBottom: 32, paddingLeft: 12 }}>
-        <div style={{ display: 'inline-block', cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
-          <AppLogo size={32} showText />
-        </div>
-      </div>
+    <nav className="bottom-nav">
       {NAV.map(item => {
-        const active = pathname === item.path || pathname.startsWith(item.path + '/');
+        const active = pathname === item.path || (pathname === '/' && item.path === '/dashboard');
+        const Icon = item.icon;
         return (
           <button
             key={item.path}
             className={`nav-item ${active ? 'active' : ''}`}
             onClick={() => navigate(item.path)}
-            aria-current={active ? 'page' : undefined}
-            aria-label={item.label}
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              gap: 4,
+              cursor: 'pointer',
+              padding: '8px 0',
+              flex: 1
+            }}
           >
-            <span className="nav-icon">{item.icon(active)}</span>
-            <span className="nav-label">{item.label}</span>
+            <div style={{ position: 'relative' }}>
+               <Icon 
+                 size={22} 
+                 color={active ? 'var(--accent)' : 'var(--text-muted)'} 
+                 strokeWidth={active ? 2.5 : 2} 
+               />
+               {active && (
+                 <div style={{ 
+                   position: 'absolute', 
+                   top: -8, 
+                   left: '50%', 
+                   transform: 'translateX(-50%)', 
+                   width: 4, 
+                   height: 4, 
+                   borderRadius: '50%', 
+                   background: 'var(--accent)',
+                   boxShadow: '0 0 8px var(--accent)'
+                 }} />
+               )}
+            </div>
+            <span style={{ 
+              fontSize: '0.6rem', 
+              fontWeight: 800, 
+              color: active ? 'var(--accent)' : 'var(--text-muted)',
+              textTransform: 'capitalize'
+            }}>
+              {item.label}
+            </span>
+            {active && (
+               <div style={{ 
+                 position: 'absolute', 
+                 bottom: 0, 
+                 width: 20, 
+                 height: 2, 
+                 background: 'var(--accent)', 
+                 borderRadius: '2px' 
+               }} />
+            )}
           </button>
         );
       })}

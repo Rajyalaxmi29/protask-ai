@@ -20,6 +20,7 @@ import ExpensesPage from './pages/ExpensesPage';
 import FilesPage from './pages/FilesPage';
 import ProfilePage from './pages/ProfilePage';
 import AddExpensePage from './pages/AddExpensePage';
+import TrackerPage from './pages/TrackerPage';
 
 function LoadingScreen() {
   return (
@@ -152,6 +153,7 @@ export default function App() {
 
               {/* Protected */}
               <Route path="/dashboard"  element={<Protected session={session}><DashboardPage /></Protected>} />
+              <Route path="/tracker"    element={<Protected session={session}><TrackerPage /></Protected>} />
               <Route path="/tasks"      element={<Protected session={session}><TasksPage /></Protected>} />
               <Route path="/reminders"  element={<Protected session={session}><RemindersPage /></Protected>} />
               <Route path="/expenses"   element={<Protected session={session}><ExpensesPage /></Protected>} />

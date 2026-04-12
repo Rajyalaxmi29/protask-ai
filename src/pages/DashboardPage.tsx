@@ -1,294 +1,321 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import AppHeader from '../components/AppHeader';
+import { 
+  Search, Menu,
+  Flame, Zap,
+  TrendingUp, CheckCircle2,
+  DollarSign, FileText,
+  ChevronRight, Bell,
+  Target, Folder,
+  TrendingDown, Clock
+} from 'lucide-react';
 import BottomNav from '../components/BottomNav';
-import { supabase } from '../lib/supabase';
 import { persistentData } from '../lib/persistentData';
-import type { Task, Reminder, Transaction, FileRecord } from '../lib/supabase';
 
-interface Counts {
-  tasks: number;
-  tasksDone: number;
-  reminders: number;
-  income: number;
-  expense: number;
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const [counts, setCounts] = useState<Counts>({ tasks: 0, tasksDone: 0, reminders: 0, income: 0, expense: 0 });
+
   const [userName, setUserName] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      const uid = await persistentData.getUserId();
-      if (!uid) { setLoading(false); return; }
-      
-      const session = await supabase.auth.getSession();
-      const user = session.data.session?.user;
-      if (user) {
-        setUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'User');
-        setAvatarUrl(user.user_metadata?.avatar_url || null);
-      }
+  // Stats
+  const [todoCount, setTodoCount] = useState(0);
+  const [doneCount, setDoneCount] = useState(0);
+  const [balance, setBalance] = useState(0);
+  const [totalIncome, setTotalIncome] = useState(0);
+  const [totalExpense, setTotalExpense] = useState(0);
+  const [fileCount, setFileCount] = useState(0);
+  const [productivity, setProductivity] = useState(0);
+  const [activities, setActivities] = useState<any[]>([]);
 
-      const [tsks, rems, txs, fls] = await Promise.all([
-        persistentData.get<Task>('tasks', uid),
-        persistentData.get<Reminder>('reminders', uid),
-        persistentData.get<Transaction>('transactions', uid),
-        persistentData.get<FileRecord>('files', uid)
+  useEffect(() => { loadAll(); }, []);
+
+  const loadAll = async () => {
+    setLoading(true);
+    try {
+      const userId = await persistentData.getUserId();
+      if (!userId) { setLoading(false); return; }
+
+      const [tasks, transactions, files] = await Promise.all([
+        persistentData.get<any>('tasks', userId),
+        persistentData.get<any>('transactions', userId),
+        persistentData.get<any>('files', userId),
       ]);
 
-      const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-      const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-      
-      setCounts({
-        tasks: tsks.filter(t => (t.status ?? 'todo') !== 'done').length,
-        tasksDone: tsks.filter(t => (t.status ?? 'todo') === 'done').length,
-        reminders: rems.filter(r => !r.is_done).length,
-        income,
-        expense
+      // --- Task stats ---
+      const todo = tasks.filter((t: any) => !t.done).length;
+      const done = tasks.filter((t: any) => t.done).length;
+      setTodoCount(todo);
+      setDoneCount(done);
+
+      // Productivity = % of tasks completed
+      const totalTasks = todo + done;
+      const prod = totalTasks > 0 ? Math.round((done / totalTasks) * 100) : 0;
+      setProductivity(prod);
+
+      // --- Finance stats ---
+      let inc = 0, exp = 0;
+      transactions.forEach((t: any) => {
+        if (t.type === 'income') inc += Number(t.amount) || 0;
+        else exp += Number(t.amount) || 0;
       });
-      setTasks(tsks);
-      setTransactions(txs);
-      
-      // We'll store files in a temp variable for chart memo
-      (window as any)._allFiles = fls;
-      (window as any)._allReminders = rems;
+      setTotalIncome(inc);
+      setTotalExpense(exp);
+      setBalance(inc - exp);
 
-      setLoading(false);
-    }
-    load();
-  }, []);
+      // --- File count ---
+      setFileCount(files.length);
 
-  // REAL DATA: Daily Tasks Overview (Last 7 Days)
-  const taskChartData = useMemo(() => {
-    const days = [];
-    const now = new Date();
-    const allFiles = (window as any)._allFiles || [];
-    const allReminders = (window as any)._allReminders || [];
+      // --- Activity feed: TODAY only ---
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
 
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const dayStr = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const isoDate = d.toISOString().split('T')[0];
-      
-      const dayTasks = tasks.filter(t => (t.due_date || t.created_at).startsWith(isoDate));
-      const dayTxs = transactions.filter(t => t.date === isoDate);
-      const dayFiles = allFiles.filter((f: any) => f.created_at?.startsWith(isoDate));
-      const dayRems = allReminders.filter((r: any) => r.remind_at?.startsWith(isoDate));
+      const isToday = (dateStr: string) => {
+        if (!dateStr) return false;
+        return new Date(dateStr).getTime() >= todayStart.getTime();
+      };
 
-      days.push({
-        name: dayStr,
-        completed: dayTasks.filter(t => (t.status ?? 'todo') === 'done').length,
-        ongoing: dayTasks.filter(t => (t.status ?? 'todo') !== 'done').length,
-        expenseCount: dayTxs.filter(t => t.type === 'expense').length,
-        incomeTotal: dayTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-        fileCount: dayFiles.length,
-        reminderCount: dayRems.length
-      });
-    }
-    return days;
-  }, [tasks, transactions]);
-
-  // CUSTOM TOOLTIP COMPONENT
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const items = [
-        { icon: '📋', count: data.completed + data.ongoing, label: 'Tasks' },
-        { icon: '💸', count: data.expenseCount, label: 'Expenses' },
-        { icon: '📁', count: data.fileCount, label: 'Files' },
-        { icon: '🔔', count: data.reminderCount, label: 'Reminders' }
+      const feed: any[] = [
+        ...tasks
+          .filter((t: any) => isToday(t.created_at) || (t.done && isToday(t.updated_at)))
+          .map((t: any) => ({
+            icon: t.done ? '✅' : '⚡',
+            title: t.title,
+            sub: t.done ? 'Task completed today' : 'Task added today',
+            date: t.updated_at || t.created_at,
+            path: '/tasks'
+          })),
+        ...transactions
+          .filter((t: any) => isToday(t.created_at) || isToday(t.date))
+          .map((t: any) => ({
+            icon: t.type === 'income' ? '💰' : '💸',
+            title: t.title,
+            sub: `${t.type === 'income' ? '+' : '-'}₹${Number(t.amount).toLocaleString('en-IN')} · ${t.category}`,
+            date: t.created_at || t.date,
+            path: '/expenses'
+          })),
+        ...files
+          .filter((f: any) => isToday(f.created_at))
+          .map((f: any) => ({
+            icon: '📁',
+            title: f.name,
+            sub: `${f.type} · ${f.size} · uploaded`,
+            date: f.created_at,
+            path: '/files'
+          })),
       ];
 
-      return (
-        <div style={{ background: '#2D3139', border: 'none', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', color: '#fff', minWidth: 140 }}>
-           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {items.map((item, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: '0.9rem' }}>{item.icon}</span>
-                      <span style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 600 }}>{item.label}</span>
-                   </div>
-                   <span style={{ fontSize: '0.85rem', fontWeight: 900 }}>{item.count}</span>
-                </div>
-              ))}
-           </div>
-        </div>
-      );
+      feed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setActivities(feed.slice(0, 6));
+
+    } catch (err) {
+      console.error('Dashboard load error:', err);
+    } finally {
+      setLoading(false);
     }
-    return null;
   };
 
-  // REAL DATA: Monthly Growth Calculation
-  const monthlyBalance = useMemo(() => {
-    const now = new Date();
-    const thisMonth = now.toISOString().substring(0, 7); // YYYY-MM
-    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMonth = prevMonthDate.toISOString().substring(0, 7);
-
-    const thisMonthTxs = transactions.filter(t => t.date.startsWith(thisMonth));
-    const thisMonthNet = thisMonthTxs.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
-
-    const prevMonthTxs = transactions.filter(t => t.date.startsWith(prevMonth));
-    const prevMonthNet = prevMonthTxs.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
-
-    const diff = thisMonthNet - prevMonthNet;
-    const pct = prevMonthNet !== 0 ? Math.round((diff / Math.abs(prevMonthNet)) * 100) : 100;
-
-    return { 
-      net: thisMonthNet, 
-      diff: diff >= 0 ? `+₹${Math.abs(diff).toLocaleString()}` : `-₹${Math.abs(diff).toLocaleString()}`,
-      pct: `${pct}%`,
-      isUp: diff >= 0
-    };
-  }, [transactions]);
-
-  // REAL DATA: Pulse Sparkline from Recent Daily Net
-  const sparkData = useMemo(() => {
-    const last7 = [];
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const iso = d.toISOString().split('T')[0];
-        const dayNet = transactions.filter(t => t.date === iso).reduce((s, t) => s + t.amount, 0);
-        last7.push({ v: dayNet || 10 }); // fallback to 10 for visual pulse if 0
-    }
-    return last7;
-  }, [transactions]);
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
 
   return (
-    <div className="page">
-      <AppHeader
-        showLogo
-        showTheme
-        rightContent={
-          <div onClick={() => navigate('/profile')} style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, cursor: 'pointer', color: '#fff' }}>
-             {avatarUrl ? <img src={avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-md)' }} alt="avatar" /> : userName.charAt(0).toUpperCase()}
+    <div className="page" style={{ background: '#000' }}>
+      {/* Header */}
+      <header style={{ 
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+        padding: '20px', position: 'sticky', top: 0, 
+        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', zIndex: 100 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Menu size={20} />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{greeting()} 👋</span>
+            <span style={{ fontSize: '1rem', fontWeight: 900 }}>System Dashboard</span>
           </div>
-        }
-      />
+        </div>
+        <div style={{ display: 'flex', gap: 20, color: 'var(--text-secondary)' }}>
+          <Search size={18} />
+          <Bell size={18} />
+        </div>
+      </header>
 
-      <div className="page-content" style={{ padding: '20px' }}>
-        <div style={{ marginBottom: 24 }}>
-           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 2 }}>Good evening,</p>
-           <h2 style={{ fontSize: '1.8rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 10 }}>
-              {userName} <span className="animate-wave">👋</span>
-           </h2>
+      <div className="page-content" style={{ padding: '20px', paddingBottom: 100 }}>
+
+        {/* Productivity Hero */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card"
+          style={{ 
+            background: 'linear-gradient(135deg, #0a0a0a 0%, #141414 100%)',
+            border: '1px solid rgba(0,255,178,0.15)',
+            padding: '28px 24px', marginBottom: 20,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--accent)', letterSpacing: '1.5px', marginBottom: 10 }}>TASK COMPLETION RATE</div>
+            <div style={{ fontSize: '3rem', fontWeight: 900, lineHeight: 1 }}>
+              {loading ? '—' : `${productivity}%`}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 10 }}>
+              {doneCount} done · {todoCount} pending
+            </div>
+            {/* mini progress bar */}
+            <div style={{ width: 140, height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 2, marginTop: 14 }}>
+              <div style={{ width: `${productivity}%`, height: '100%', background: 'var(--accent)', borderRadius: 2, transition: 'width 0.8s ease', boxShadow: '0 0 8px var(--accent-glow)' }} />
+            </div>
+          </div>
+          <div style={{ width: 72, height: 72, borderRadius: '22px', background: 'rgba(0,255,178,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <TrendingUp size={36} color="var(--accent)" />
+          </div>
+        </motion.div>
+
+        {/* Stats Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>
+          {[
+            { label: 'Balance', value: `₹${Math.abs(balance).toLocaleString('en-IN')}`, sub: balance >= 0 ? 'surplus' : 'deficit', color: balance >= 0 ? '#22c55e' : '#EF4444', icon: DollarSign },
+            { label: 'Tasks', value: `${todoCount}`, sub: 'remaining', color: 'var(--accent)', icon: CheckCircle2 },
+            { label: 'Vault', value: `${fileCount}`, sub: 'files', color: '#3B82F6', icon: Folder },
+          ].map((s, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.07 }}
+              className="card"
+              style={{ padding: '18px 14px' }}
+            >
+              <s.icon size={16} color={s.color} style={{ marginBottom: 8 }} />
+              <div style={{ fontSize: '1.5rem', fontWeight: 900, lineHeight: 1 }}>{loading ? '—' : s.value}</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', marginTop: 4, textTransform: 'uppercase' }}>{s.sub}</div>
+            </motion.div>
+          ))}
         </div>
 
-        {/* Dynamic Financial Hero */}
-        <div className="card" style={{ background: '#2D3139', border: 'none', padding: '24px', borderRadius: '24px', color: '#fff', marginBottom: 16 }}>
-           <div style={{ fontSize: '0.85rem', opacity: 0.8, marginBottom: 8 }}>Total Net Worth</div>
-           <div style={{ fontSize: '2.4rem', fontWeight: 900, marginBottom: 12 }}>₹{(counts.income - counts.expense).toLocaleString('en-IN')}</div>
-           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: '0.85rem', background: monthlyBalance.isUp ? 'rgba(165,106,189,0.2)' : 'rgba(231,219,239,0.2)', color: monthlyBalance.isUp ? 'var(--accent-light)' : 'var(--text-secondary)', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-                 {monthlyBalance.isUp ? '↗' : '↘'} {monthlyBalance.pct}
-              </span>
-              <span style={{ fontSize: '0.85rem', opacity: 0.6 }}>{monthlyBalance.diff} this month</span>
-           </div>
+        {/* Finance Summary */}
+        <div className="card" style={{ padding: '20px 24px', marginBottom: 24 }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1.5px', marginBottom: 16 }}>FINANCE OVERVIEW</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <TrendingUp size={14} color="#22c55e" />
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#22c55e' }}>INCOME</span>
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 900 }}>₹{loading ? '—' : totalIncome.toLocaleString('en-IN')}</div>
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <TrendingDown size={14} color="#EF4444" />
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#EF4444' }}>EXPENSES</span>
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 900 }}>₹{loading ? '—' : totalExpense.toLocaleString('en-IN')}</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>NET BALANCE</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: 900, color: balance >= 0 ? '#22c55e' : '#EF4444' }}>
+              {balance >= 0 ? '+' : '-'}₹{loading ? '—' : Math.abs(balance).toLocaleString('en-IN')}
+            </span>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 32 }}>
-           <div className="card" style={{ background: '#fff', border: '1px solid #F0F0F0', padding: '20px', borderRadius: '24px' }}>
-              <div style={{ width: 32, height: 32, borderRadius: '8px', background: '#F8F9FB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, color: '#333' }}>↑</div>
-              <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: 600, marginBottom: 4 }}>Total Income</div>
-              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#111' }}>₹{counts.income.toLocaleString('en-IN')}</div>
-           </div>
-           <div className="card" style={{ background: '#fff', border: '1px solid #F0F0F0', padding: '20px', borderRadius: '24px' }}>
-              <div style={{ width: 32, height: 32, borderRadius: '8px', background: '#F8F9FB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, color: '#333' }}>↓</div>
-              <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: 600, marginBottom: 4 }}>Total Expense</div>
-              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#111' }}>₹{counts.expense.toLocaleString('en-IN')}</div>
-           </div>
+        {/* Command Center */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1.5px', marginBottom: 14 }}>COMMAND CENTER</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            {[
+              { icon: CheckCircle2, label: 'Tasks', color: 'var(--accent)', path: '/tasks', badge: todoCount > 0 ? todoCount : null },
+              { icon: DollarSign, label: 'Finance', color: '#FCD34D', path: '/expenses', badge: null },
+              { icon: Folder, label: 'Vault', color: '#3B82F6', path: '/files', badge: fileCount > 0 ? fileCount : null },
+              { icon: Target, label: 'Profile', color: '#A855F7', path: '/profile', badge: null },
+            ].map((m, i) => {
+              const Icon = m.icon;
+              return (
+                <motion.div
+                  key={i} whileTap={{ scale: 0.94 }}
+                  onClick={() => navigate(m.path)}
+                  style={{ 
+                    aspectRatio: '1', borderRadius: '18px', background: 'var(--bg-card)',
+                    border: '1px solid var(--border)', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: '10px', background: `${m.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: m.color }}>
+                    <Icon size={18} />
+                  </div>
+                  <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-secondary)' }}>{m.label}</span>
+                  {m.badge !== null && m.badge !== undefined && (
+                    <div style={{ position: 'absolute', top: 8, right: 8, minWidth: 18, height: 18, borderRadius: 9, background: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', fontWeight: 900, color: '#000', padding: '0 4px' }}>
+                      {m.badge}
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="section-header" style={{ marginBottom: 16 }}>
-           <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#111' }}>Ecosystem</h3>
-           <button style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 700, fontSize: '0.85rem' }}>See all</button>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 40 }}>
-           {[
-              { title: 'Task Manager', path: '/tasks', icon: '📋', count: counts.tasks, color: '#3B82F6' },
-              { title: 'Reminders', path: '/reminders', icon: '🔔', count: counts.reminders, color: '#F59E0B' },
-              { title: 'Finance Tracker', path: '/expenses', icon: '💸', count: transactions.length, color: '#A56ABD' }
-           ].map((item, idx) => (
-             <div key={idx} onClick={() => navigate(item.path)} className="card" style={{ background: '#fff', border: '1px solid #F0F0F0', padding: '16px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}>
-                <div style={{ width: 44, height: 44, borderRadius: '14px', background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.2rem' }}>
-                   {item.icon}
+        {/* Live Activity Feed */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1.5px' }}>LATEST ACTIVITY</div>
+            <span style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 800 }}>LIVE</span>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {loading && (
+              <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Loading activity...
+              </div>
+            )}
+            {!loading && activities.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text-muted)' }}>
+                ✨ Nothing done yet today. Go get it! 🚀
+              </div>
+            )}
+            {!loading && activities.map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.04 }}
+                onClick={() => navigate(item.path)}
+                className="card"
+                style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
+              >
+                <div style={{ width: 40, height: 40, borderRadius: '14px', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>
+                  {item.icon}
                 </div>
-                <div style={{ flex: 1 }}>
-                   <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#111' }}>{item.title}</div>
-                   <div style={{ fontSize: '0.75rem', color: '#888' }}>{item.count} items tracked</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{item.sub}</div>
                 </div>
-                <div style={{ color: '#CCC' }}>❯</div>
-             </div>
-           ))}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700 }}>{timeAgo(item.date)}</span>
+                  <ChevronRight size={14} color="var(--text-muted)" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-           <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#111' }}>Task Overview</h3>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-           <div className="card" style={{ background: '#9E8896', border: 'none', borderRadius: '24px', padding: '24px', position: 'relative', overflow: 'hidden', minHeight: 180 }}>
-              <div style={{ textAlign: 'center', color: '#fff', position: 'relative', zIndex: 2 }}>
-                 <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>{counts.tasksDone}</div>
-                 <div style={{ fontSize: '0.75rem', opacity: 0.8, fontWeight: 600 }}>Completed Task</div>
-              </div>
-              <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '60px' }}>
-                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sparkData}>
-                       <Area type="monotone" dataKey="v" stroke="rgba(255,255,255,0.4)" fill="rgba(255,255,255,0.1)" strokeWidth={2} />
-                    </AreaChart>
-                 </ResponsiveContainer>
-              </div>
-           </div>
-           <div className="card" style={{ background: '#EFB08C', border: 'none', borderRadius: '24px', padding: '24px', position: 'relative', overflow: 'hidden', minHeight: 180 }}>
-              <div style={{ textAlign: 'center', color: '#fff', position: 'relative', zIndex: 2 }}>
-                 <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>{counts.tasks}</div>
-                 <div style={{ fontSize: '0.75rem', opacity: 0.8, fontWeight: 600 }}>Ongoing Task</div>
-              </div>
-              <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '60px' }}>
-                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sparkData}>
-                       <Area type="monotone" dataKey="v" stroke="rgba(255,255,255,0.4)" fill="rgba(255,255,255,0.1)" strokeWidth={2} />
-                    </AreaChart>
-                 </ResponsiveContainer>
-              </div>
-           </div>
-        </div>
-
-        <div className="card" style={{ background: '#fff', border: '1px solid #F0F0F0', borderRadius: '24px', padding: '24px', marginBottom: 20 }}>
-           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#111' }}>Daily tasks overview</div>
-              <div style={{ fontSize: '0.75rem', color: '#AAA' }}>{new Date().toLocaleDateString('en-GB')}</div>
-           </div>
-           <div style={{ width: '100%', height: 220 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={taskChartData} barGap={8}>
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#AAA', fontSize: 10 }} dy={10} />
-                    <YAxis hide />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
-                    <Bar dataKey="completed" fill="#9E8896" radius={[4, 4, 0, 0]} barSize={10} />
-                    <Bar dataKey="ongoing" fill="#EFB08C" radius={[4, 4, 0, 0]} barSize={10} />
-                 </BarChart>
-              </ResponsiveContainer>
-           </div>
-           <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: '#666', fontWeight: 600 }}>
-                 <div style={{ width: 8, height: 8, borderRadius: '2px', background: '#9E8896' }} /> Completed
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: '#666', fontWeight: 600 }}>
-                 <div style={{ width: 8, height: 8, borderRadius: '2px', background: '#EFB08C' }} /> Ongoing
-              </div>
-           </div>
-        </div>
       </div>
 
       <BottomNav />

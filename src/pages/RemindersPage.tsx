@@ -1,5 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Bell, Plus, Calendar as CalendarIcon, Clock, 
+  CheckCircle2, Trash2, ChevronLeft, ChevronRight,
+  AlertPixel, Sparkles, Activity
+} from 'lucide-react';
 import AppHeader from '../components/AppHeader';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabase';
@@ -7,13 +12,10 @@ import { persistentData } from '../lib/persistentData';
 import type { Reminder } from '../lib/supabase';
 
 export default function RemindersPage() {
-  const navigate = useNavigate();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewDate, setViewDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAdd, setShowAdd] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', date: new Date().toISOString().split('T')[0], time: '12:00' });
   const [saving, setSaving] = useState(false);
 
@@ -27,22 +29,6 @@ export default function RemindersPage() {
 
   useEffect(() => { load(); }, []);
 
-  // Calendar logic
-  const calendarDays = useMemo(() => {
-    const year = viewDate.getFullYear();
-    const month = viewDate.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let i = 1; i <= daysInMonth; i++) {
-        const d = new Date(year, month, i);
-        days.push({ num: i, date: d.toISOString().split('T')[0] });
-    }
-    return days;
-  }, [viewDate]);
-
-  // Filtering Logic
   const activeForDate = useMemo(() => {
     return reminders.filter(r => r.remind_at.startsWith(selectedDate) && !r.is_done)
                    .sort((a,b) => a.remind_at.localeCompare(b.remind_at));
@@ -53,14 +39,13 @@ export default function RemindersPage() {
                    .sort((a,b) => a.remind_at.localeCompare(b.remind_at));
   }, [reminders, selectedDate]);
 
-  // Actions
   const toggleReminder = async (r: Reminder) => {
     const updated = await persistentData.mutate('reminders', 'UPDATE', { ...r, is_done: !r.is_done });
     setReminders(prev => prev.map(x => x.id === r.id ? (updated as Reminder) : x));
   };
 
   const deleteReminder = async (id: string) => {
-    if (!window.confirm('Delete this reminder?')) return;
+    if (!window.confirm('Delete scheduling?')) return;
     await persistentData.mutate('reminders', 'DELETE', { id });
     setReminders(prev => prev.filter(r => r.id !== id));
   };
@@ -78,172 +63,202 @@ export default function RemindersPage() {
     setReminders(prev => [...prev, saved as Reminder].sort((a,b) => a.remind_at.localeCompare(b.remind_at)));
     setShowAdd(false);
     setSaving(false);
+    setForm({ ...form, title: '', description: '' });
   };
 
-  const formattedSelectedDate = new Date(selectedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
-
   return (
-    <div className="page" style={{ background: 'var(--bg-primary)', overflowX: 'hidden' }}>
-      <AppHeader
-        title="Schedule"
-        showBack
-        showTheme
-        rightContent={
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button 
-                onClick={() => setShowAdd(true)} 
-                style={{ width: 40, height: 40, borderRadius: '14px', background: 'var(--accent-grad)', border: 'none', color: '#fff', fontSize: '1.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px var(--accent-glow)' }}>
-                +
-            </button>
-          </div>
-        }
-      />
+    <div className="page">
+      <AppHeader title="Pulse Schedule" showTheme />
 
-      <div className="page-content" style={{ padding: '0px', position: 'relative' }}>
+      <div className="page-content" style={{ padding: '0px' }}>
         
-        {/* HERO SECTION: Trending Calendar Card */}
-        <div style={{ padding: '24px 20px 32px', background: 'linear-gradient(180deg, rgba(165,106,189,0.1) 0%, transparent 100%)' }}>
-           <div className="card" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '32px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                 <div>
-                    <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>{viewDate.toLocaleString('en-US', { month: 'long' })}</h2>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{viewDate.getFullYear()}</div>
+        {/* Pulse Insights Header */}
+        <div style={{ padding: '32px 20px', background: 'var(--bg-primary)' }}>
+           <motion.div 
+             initial={{ opacity: 0, y: 10 }}
+             animate={{ opacity: 1, y: 0 }}
+             className="card" 
+             style={{ 
+               background: 'var(--secondary-grad)', border: 'none', 
+               padding: '24px', borderRadius: '24px', position: 'relative', overflow: 'hidden' 
+             }}
+           >
+              <div style={{ position: 'absolute', top: -20, right: -20, opacity: 0.1 }}><Bell size={120} /></div>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', fontWeight: 600, marginBottom: 12 }}>
+                    <Activity size={16} /> MOMENTUM STATUS
                  </div>
-                 <div style={{ display: 'flex', gap: 12 }}>
-                    <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth()-1))} style={{ width: 40, height: 40, borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', fontSize: '1rem' }}>❮</button>
-                    <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth()+1))} style={{ width: 40, height: 40, borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', fontSize: '1rem' }}>❯</button>
-                 </div>
+                 <h3 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fff', marginBottom: 4 }}>You've stayed focused for 3 hours</h3>
+                 <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>Next activity starts in 45 minutes.</p>
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center' }}>
-                 {['S','M','T','W','T','F','S'].map(d => <div key={d} style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: 16 }}>{d}</div>)}
-                 {calendarDays.map((d, i) => {
-                    if (!d) return <div key={i} />;
-                    const isToday = new Date().toISOString().split('T')[0] === d.date;
-                    const hasRem = reminders.some(r => r.remind_at.startsWith(d.date));
-                    const isSelected = selectedDate === d.date;
-                    return (
-                        <div key={i} onClick={() => setSelectedDate(d.date)} style={{ aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '14px', background: isSelected ? 'var(--accent-grad)' : (isToday ? 'rgba(165,106,189,0.1)' : 'transparent'), color: isSelected ? '#fff' : (isToday ? 'var(--accent-light)' : 'var(--text-primary)'), fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative' }}>
-                           {d.num}
-                           {hasRem && !isSelected && <div style={{ position: 'absolute', bottom: 6, width: 4, height: 4, borderRadius: '50%', background: 'var(--accent-light)', boxShadow: '0 0 10px var(--accent-light)' }} />}
-                        </div>
-                    );
-                 })}
-              </div>
-           </div>
+           </motion.div>
         </div>
 
-        {/* AGENDA SECTION: Optimized Date-Specific List */}
-        <div style={{ background: 'var(--bg-secondary)', borderTopLeftRadius: '40px', borderTopRightRadius: '40px', minHeight: '600px', padding: '40px 24px' }}>
-           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
-              <div>
-                 <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Activities</h3>
-                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, marginTop: 4 }}>{formattedSelectedDate}</div>
-              </div>
-              <div style={{ padding: '8px 16px', background: 'rgba(165,106,189,0.1)', color: 'var(--accent-light)', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800 }}>
-                 {activeForDate.length} Tasks
+        {/* Pulse Timeline Matrix */}
+        <div style={{ padding: '0 20px 100px' }}>
+           <div className="section-header" style={{ marginBottom: 24 }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 900 }}>Timeline</h3>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input 
+                  type="date" 
+                  value={selectedDate} 
+                  onChange={e => setSelectedDate(e.target.value)}
+                  style={{ 
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border)', 
+                    borderRadius: '12px', padding: '6px 12px', color: 'var(--text-primary)',
+                    fontSize: '0.8rem', fontWeight: 700
+                  }}
+                />
               </div>
            </div>
 
-           {loading ? (
-             <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>Syncing...</div>
-           ) : (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                {activeForDate.length === 0 && completedForDate.length === 0 ? (
-                   <div style={{ textAlign: 'center', padding: '60px 0' }}>
-                      <div style={{ fontSize: '3rem', marginBottom: 20 }}>🍃</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-secondary)' }}>Free Day</div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 8 }}>Nothing scheduled for this date.</div>
+           <div style={{ position: 'relative' }}>
+              {/* Vertical Pulse Line */}
+              <div style={{ position: 'absolute', left: 24, top: 0, bottom: 0, width: 2, background: 'linear-gradient(to bottom, var(--accent), transparent)', opacity: 0.3 }} />
+
+              <div className="flex flex-col gap-8">
+                 {activeForDate.length === 0 && completedForDate.length === 0 && (
+                   <div className="empty-state" style={{ padding: '60px 0', marginLeft: 60 }}>
+                      <Sparkles size={40} color="var(--accent)" style={{ marginBottom: 16 }} />
+                      <h3 style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>Quiet Zone</h3>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No activities detected for this sequence.</p>
                    </div>
-                ) : (
-                   <>
-                      {/* Active Reminders */}
-                      {activeForDate.map(r => (
-                        <div key={r.id} onClick={() => toggleReminder(r)} className="rem-card" style={{ display: 'flex', gap: 20, cursor: 'pointer' }}>
-                           <div style={{ padding: '4px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <div style={{ width: 24, height: 24, borderRadius: '6px', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                 <div style={{ width: 12, height: 12, borderRadius: '2px', background: 'transparent' }} />
-                              </div>
+                 )}
+
+                 {activeForDate.map((r, i) => (
+                   <motion.div 
+                     key={r.id}
+                     initial={{ opacity: 0, x: -10 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     transition={{ delay: i * 0.1 }}
+                     style={{ display: 'flex', gap: 24, position: 'relative' }}
+                   >
+                      {/* Pulse Node */}
+                      <div style={{ width: 50, display: 'flex', justifyContent: 'center', zIndex: 1 }}>
+                         <div style={{ 
+                           width: 14, height: 14, borderRadius: '50%', background: 'var(--accent)', 
+                           marginTop: 10, border: '4px solid var(--bg-primary)',
+                           boxShadow: '0 0 15px var(--accent-glow)'
+                         }} className="animate-pulse" />
+                      </div>
+                      
+                      <div 
+                        className="card" 
+                        style={{ 
+                          flex: 1, background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                          padding: '20px', borderRadius: '24px', position: 'relative'
+                        }}
+                      >
+                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                               <Clock size={14} /> {new Date(r.remind_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                            <button onClick={() => deleteReminder(r.id)} className="icon-btn" style={{ width: 28, height: 28, background: 'transparent' }}>
+                               <Trash2 size={14} color="var(--text-muted)" />
+                            </button>
+                         </div>
+                         <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: 8 }}>{r.title}</h4>
+                         {r.description && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{r.description}</p>}
+                         
+                         <button 
+                           onClick={() => toggleReminder(r)}
+                           className="btn" 
+                           style={{ 
+                             marginTop: 16, background: 'rgba(0,255,178,0.05)', color: 'var(--accent)', 
+                             width: '100%', borderRadius: '12px', padding: '10px', fontSize: '0.8rem', fontWeight: 800,
+                             border: '1px solid rgba(0,255,178,0.1)'
+                           }}
+                         >
+                            Check-in Done
+                         </button>
+                      </div>
+                   </motion.div>
+                 ))}
+
+                 {completedForDate.length > 0 && (
+                   <div className="flex flex-col gap-4" style={{ opacity: 0.5 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-muted)', marginLeft: 74, marginBottom: 8 }}>COMPLETED SEQUENCE</div>
+                      {completedForDate.map(r => (
+                        <div key={r.id} style={{ display: 'flex', gap: 24, paddingLeft: 12 }}>
+                           <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <CheckCircle2 size={14} color="var(--text-muted)" />
                            </div>
-                           <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-light)', marginBottom: 4 }}>{new Date(r.remind_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
-                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>{r.title}</div>
-                              {r.description && <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5 }}>{r.description}</div>}
-                           </div>
-                           <button onClick={(e) => { e.stopPropagation(); deleteReminder(r.id); }} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', padding: '4px', opacity: 0.6 }}>
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                           </button>
+                           <div style={{ flex: 1, fontSize: '0.95rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>{r.title}</div>
                         </div>
                       ))}
-
-                      {/* Completed Section Separator */}
-                      {completedForDate.length > 0 && (
-                        <div style={{ marginTop: 24 }}>
-                           <button 
-                             onClick={() => setShowCompleted(!showCompleted)}
-                             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: 0 }}>
-                             {showCompleted ? 'Hide Completed' : `Show Completed (${completedForDate.length})`}
-                             <div style={{ flex: 1, borderBottom: '1px dashed rgba(255,255,255,0.1)', marginLeft: 8 }} />
-                           </button>
-
-                           {showCompleted && (
-                             <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 24, opacity: 0.6 }}>
-                                {completedForDate.map(r => (
-                                  <div key={r.id} onClick={() => toggleReminder(r)} style={{ display: 'flex', gap: 20, cursor: 'pointer' }}>
-                                     <div style={{ padding: '4px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                        <div style={{ width: 24, height: 24, borderRadius: '6px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                        </div>
-                                     </div>
-                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-secondary)', textDecoration: 'line-through' }}>{r.title}</div>
-                                     </div>
-                                     <button onClick={(e) => { e.stopPropagation(); deleteReminder(r.id); }} style={{ background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', padding: '4px', opacity: 0.5 }}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                     </button>
-                                  </div>
-                                ))}
-                             </div>
-                           )}
-                        </div>
-                      )}
-                   </>
-                )}
-             </div>
-           )}
+                   </div>
+                 )}
+              </div>
+           </div>
         </div>
       </div>
 
-      <BottomNav />
+      {/* Action Launcher */}
+      <motion.button 
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setShowAdd(true)}
+        style={{ 
+          position: 'fixed', bottom: 100, right: 24, 
+          width: 56, height: 56, borderRadius: '20px', 
+          background: 'var(--accent)', border: 'none', 
+          color: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+          boxShadow: '0 8px 25px var(--accent-glow)', zIndex: 100, cursor: 'pointer' 
+        }}
+      >
+         <Plus size={28} />
+      </motion.button>
 
-      {/* Add Modal */}
-      {showAdd && (
-        <div className="overlay" onClick={() => setShowAdd(false)}>
-           <div className="sheet" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-secondary)', borderRadius: '40px 40px 0 0', padding: '12px 24px 40px' }}>
-              <div className="sheet-handle" style={{ background: 'rgba(255,255,255,0.1)' }} />
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, textAlign: 'center', margin: '32px 0 24px', color: 'var(--text-primary)' }}>New Activity</h2>
-              <div className="form-group" style={{ marginBottom: 24 }}>
-                 <input type="text" className="input" placeholder="Title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ background: 'rgba(255,255,255,0.03)', color: '#fff', fontSize: '1.1rem' }} autoFocus />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 40 }}>
-                 <div className="form-group">
-                    <label className="form-label" style={{ color: 'var(--text-muted)' }}>Date</label>
-                    <input type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={{ background: 'rgba(255,255,255,0.03)', color: '#fff' }} />
-                 </div>
-                 <div className="form-group">
-                    <label className="form-label" style={{ color: 'var(--text-muted)' }}>Time</label>
-                    <input type="time" className="input" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} style={{ background: 'rgba(255,255,255,0.03)', color: '#fff' }} />
-                 </div>
-              </div>
-              <button className="btn btn-primary" onClick={addReminder} style={{ height: 60, borderRadius: '24px' }}>Save Entry</button>
-           </div>
-        </div>
-      )}
-      
-      <style>{`
-        .rem-card { transition: all 0.2s ease; border-radius: 20px; padding: 4px; }
-        .rem-card:active { transform: scale(0.98); background: rgba(255,255,255,0.02); }
-      `}</style>
+      {/* Add Sheet */}
+      <AnimatePresence>
+        {showAdd && (
+          <div className="overlay" onClick={() => setShowAdd(false)}>
+             <motion.div 
+               initial={{ y: '100%' }}
+               animate={{ y: 0 }}
+               exit={{ y: '100%' }}
+               className="sheet" 
+               onClick={e => e.stopPropagation()} 
+               style={{ background: '#121821', borderRadius: '32px 32px 0 0', padding: '40px 24px' }}
+             >
+                <div className="sheet-handle" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 900, marginBottom: 32 }}>Schedule Activity</h2>
+                
+                <div className="flex flex-col gap-6">
+                   <div className="form-group">
+                      <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: 10, display: 'block' }}>TITLE</label>
+                      <input 
+                        type="text" className="input" placeholder="What's the pulse?" 
+                        value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus 
+                      />
+                   </div>
+                   
+                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      <div className="form-group">
+                         <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: 10, display: 'block' }}>DATE</label>
+                         <input type="date" className="input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+                      </div>
+                      <div className="form-group">
+                         <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: 10, display: 'block' }}>TIME</label>
+                         <input type="time" className="input" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+                      </div>
+                   </div>
+                </div>
+
+                <button 
+                  disabled={saving || !form.title.trim()}
+                  className="btn btn-primary" 
+                  onClick={addReminder} 
+                  style={{ marginTop: 40, height: 60, borderRadius: '20px', fontSize: '1rem', fontWeight: 900, width: '100%' }}
+                >
+                   {saving ? 'Syncing Timeline...' : 'Stabilize Schedule'}
+                </button>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <BottomNav />
     </div>
   );
 }

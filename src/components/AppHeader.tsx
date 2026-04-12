@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, Zap } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import AppLogo from './AppLogo';
 
@@ -16,24 +17,35 @@ export default function AppHeader({ title, showLogo, forceDesktopLogo, showBack,
   const navigate = useNavigate();
 
   return (
-    <header className="app-header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <header className="app-header" style={{ backdropFilter: 'blur(20px)', background: 'rgba(11, 15, 20, 0.8)', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {showBack && (
-          <button className="back-btn" onClick={() => navigate(-1)} aria-label="Go back">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+          <button className="icon-btn" onClick={() => navigate(-1)} aria-label="Go back" style={{ background: 'transparent' }}>
+             <ChevronLeft size={24} />
           </button>
         )}
-        {showLogo && <div className={forceDesktopLogo ? "" : "mobile-only-logo"}><AppLogo size={32} showText /></div>}
+        
+        {showLogo && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+             <AppLogo size={32} />
+             <div style={{ display: forceDesktopLogo ? 'block' : 'none' }} className="desktop-block">
+                <span style={{ fontWeight: 900, fontSize: '1.2rem', letterSpacing: '-0.5px' }}>ProTask<span style={{ color: 'var(--accent)' }}>.ai</span></span>
+             </div>
+          </div>
+        )}
+
         {title && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span className="header-title">{title}</span>
-            <span style={{ fontSize: '0.6rem', background: 'rgba(255,255,255,0.05)', padding: '2px 4px', borderRadius: '4px', opacity: 0.5 }}>v54</span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span className="header-title" style={{ fontSize: '1.2rem', fontWeight: 900, color: '#fff' }}>{title}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+               <Zap size={10} color="var(--accent)" fill="var(--accent)" />
+               <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>System Active</span>
+            </div>
           </div>
         )}
       </div>
-      <div className="header-actions">
+
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {rightContent}
         {showTheme && <ThemeToggle />}
       </div>
